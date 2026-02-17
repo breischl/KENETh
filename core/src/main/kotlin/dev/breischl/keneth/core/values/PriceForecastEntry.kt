@@ -1,5 +1,7 @@
 package dev.breischl.keneth.core.values
 
+import dev.breischl.keneth.core.diagnostics.DiagnosticCollector
+import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import dev.breischl.keneth.core.values.SerializerUtils.asCborMap
 import dev.breischl.keneth.core.values.SerializerUtils.getByIntKey
 import dev.breischl.keneth.core.values.SerializerUtils.toDoubleValue
@@ -47,7 +49,8 @@ object PriceForecastEntrySerializer : KSerializer<PriceForecastEntry> {
 
     override fun deserialize(decoder: Decoder): PriceForecastEntry {
         val array = decoder.decodeSerializableValue(CborArray.serializer())
-        return parsePriceEntry(array)
+        return parsePriceEntry(array, DiagnosticContext.get())
+            ?: error("Failed to parse PriceEntry")
     }
 
     /**
@@ -61,14 +64,29 @@ object PriceForecastEntrySerializer : KSerializer<PriceForecastEntry> {
         }
     }
 
-    internal fun parsePriceEntry(array: CborArray): PriceForecastEntry {
-        require(array.size == 3) { "PriceEntry array must have exactly 3 elements" }
+    internal fun parsePriceEntry(array: CborArray, collector: DiagnosticCollector?): PriceForecastEntry? {
+        if (array.size != 3) {
+            collector?.warning(
+                "INVALID_PRICE_ENTRY",
+                "PriceEntry array has ${array.size} elements, expected 3, skipping"
+            )
+            return null
+        }
         val timestampStr = array[0].asCborMap().getByIntKey(Timestamp.TYPE_ID)?.toStringValue()
-            ?: error("Missing timestamp in PriceEntry")
+        if (timestampStr == null) {
+            collector?.warning("INVALID_PRICE_ENTRY", "Missing timestamp in PriceEntry, skipping")
+            return null
+        }
         val amount = array[1].asCborMap().getByIntKey(Amount.TYPE_ID)?.toDoubleValue()
-            ?: error("Missing amount in PriceEntry")
+        if (amount == null) {
+            collector?.warning("INVALID_PRICE_ENTRY", "Missing amount in PriceEntry, skipping")
+            return null
+        }
         val currency = array[2].asCborMap().getByIntKey(Currency.TYPE_ID)?.toStringValue()
-            ?: error("Missing currency in PriceEntry")
+        if (currency == null) {
+            collector?.warning("INVALID_PRICE_ENTRY", "Missing currency in PriceEntry, skipping")
+            return null
+        }
         return PriceForecastEntry(
             timestamp = Instant.parse(timestampStr),
             amount = Amount(amount),

@@ -1,5 +1,6 @@
 package dev.breischl.keneth.core.values
 
+import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import dev.breischl.keneth.core.values.SerializerUtils.asCborMap
 import dev.breischl.keneth.core.values.SerializerUtils.getByIntKey
 import dev.breischl.keneth.core.values.SerializerUtils.toDoubleValue
@@ -65,18 +66,36 @@ object SourceMixSerializer : KSerializer<SourceMix> {
         val innerObj = outerMap.getByIntKey(SourceMix.TYPE_ID) ?: error("Missing source mix value")
         val innerArray = innerObj as? CborArray ?: error("Expected CborArray for SourceMix entries")
 
-        // TODO: Check the the mix doesn't specify the same source twice
-        val mix = innerArray.mapNotNull { entryObj ->
+        val collector = DiagnosticContext.get()
+        val mix = mutableMapOf<EnergySource, Percentage>()
+        for (entryObj in innerArray) {
             val entryMap = entryObj.asCborMap()
-
-            // TODO: Should probably be better about handling these missing values - log as parser warnings?
-            val entry = entryMap.asMap.entries.firstOrNull() ?: return@mapNotNull null
+            val entry = entryMap.asMap.entries.firstOrNull()
+            if (entry == null) {
+                collector?.warning("EMPTY_SOURCE_ENTRY", "Empty map in SourceMix entry, skipping")
+                continue
+            }
             val sourceId = entry.key.toLongValue().toInt().toUByte()
-            val source = EnergySource.fromId(sourceId) ?: return@mapNotNull null
+            val source = EnergySource.fromId(sourceId)
+            if (source == null) {
+                collector?.warning(
+                    "UNKNOWN_SOURCE_ID",
+                    "Unknown source ID 0x${sourceId.toString(16)} in SourceMix, skipping"
+                )
+                continue
+            }
             val percentValue = entry.value.asCborMap().getByIntKey(Percentage.TYPE_ID)
-                ?.toDoubleValue() ?: return@mapNotNull null
-            source to Percentage(percentValue)
-        }.toMap()
+                ?.toDoubleValue()
+            if (percentValue == null) {
+                collector?.warning("MISSING_PERCENTAGE", "Missing percentage value for source ${source.name}, skipping")
+                continue
+            }
+            if (source in mix) {
+                collector?.warning("DUPLICATE_SOURCE", "Duplicate source in SourceMix: ${source.name}, keeping first")
+                continue
+            }
+            mix[source] = Percentage(percentValue)
+        }
         return SourceMix(mix)
     }
 }

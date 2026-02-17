@@ -1,12 +1,17 @@
 package dev.breischl.keneth.core.values
 
+import dev.breischl.keneth.core.diagnostics.DiagnosticCollector
+import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.*
 import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
+import net.orandja.obor.data.CborMap
+import net.orandja.obor.data.CborObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 class PriceForecastTest {
@@ -102,5 +107,122 @@ class PriceForecastTest {
 
         val decoded = cbor.decodeFromByteArray(PriceForecastSerializer, bytes)
         assertEquals(expected, decoded)
+    }
+
+    private fun buildValidEntryArray(
+        timestamp: String = "2025-02-01T12:00:00Z",
+        amount: Double = 42.50,
+        currency: String = "SEK"
+    ) = CborObject.buildArray {
+        add(SerializerUtils.buildStringMap(Timestamp.TYPE_ID, timestamp))
+        add(SerializerUtils.buildDoubleMap(Amount.TYPE_ID, amount))
+        add(SerializerUtils.buildStringMap(Currency.TYPE_ID, currency))
+    }
+
+    @Test
+    fun `deserialize skips non-array entry with warning`() {
+        val entriesArray = CborObject.buildArray {
+            add(buildValidEntryArray())
+            add(CborObject.buildMap { }) // not an array
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(PriceForecast.TYPE_ID), entriesArray)
+        }
+        val bytes = cbor.encodeToByteArray(CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(PriceForecastSerializer, bytes)
+        }
+
+        assertEquals(1, decoded.entries.size)
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("INVALID_PRICE_ENTRY", collector.diagnostics[0].code)
+        assertTrue(collector.diagnostics[0].message.contains("Expected CborArray"))
+    }
+
+    @Test
+    fun `deserialize skips entry with wrong array size`() {
+        val shortEntry = CborObject.buildArray {
+            add(SerializerUtils.buildStringMap(Timestamp.TYPE_ID, "2025-02-01T12:00:00Z"))
+            add(SerializerUtils.buildDoubleMap(Amount.TYPE_ID, 10.0))
+            // missing currency element
+        }
+        val entriesArray = CborObject.buildArray {
+            add(buildValidEntryArray())
+            add(shortEntry)
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(PriceForecast.TYPE_ID), entriesArray)
+        }
+        val bytes = cbor.encodeToByteArray(CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(PriceForecastSerializer, bytes)
+        }
+
+        assertEquals(1, decoded.entries.size)
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("INVALID_PRICE_ENTRY", collector.diagnostics[0].code)
+        assertTrue(collector.diagnostics[0].message.contains("2 elements"))
+    }
+
+    @Test
+    fun `deserialize skips entry with missing timestamp`() {
+        val badEntry = CborObject.buildArray {
+            add(CborObject.buildMap {
+                put(CborObject.positive(Amount.TYPE_ID), CborObject.value("not-a-timestamp"))
+            })
+            add(SerializerUtils.buildDoubleMap(Amount.TYPE_ID, 10.0))
+            add(SerializerUtils.buildStringMap(Currency.TYPE_ID, "USD"))
+        }
+        val entriesArray = CborObject.buildArray {
+            add(buildValidEntryArray())
+            add(badEntry)
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(PriceForecast.TYPE_ID), entriesArray)
+        }
+        val bytes = cbor.encodeToByteArray(CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(PriceForecastSerializer, bytes)
+        }
+
+        assertEquals(1, decoded.entries.size)
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("INVALID_PRICE_ENTRY", collector.diagnostics[0].code)
+        assertTrue(collector.diagnostics[0].message.contains("timestamp"))
+    }
+
+    @Test
+    fun `deserialize skips entry with missing amount`() {
+        val badEntry = CborObject.buildArray {
+            add(SerializerUtils.buildStringMap(Timestamp.TYPE_ID, "2025-02-01T12:00:00Z"))
+            add(CborObject.buildMap {
+                put(CborObject.positive(Currency.TYPE_ID), CborObject.value(10.0))
+            })
+            add(SerializerUtils.buildStringMap(Currency.TYPE_ID, "USD"))
+        }
+        val entriesArray = CborObject.buildArray {
+            add(buildValidEntryArray())
+            add(badEntry)
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(PriceForecast.TYPE_ID), entriesArray)
+        }
+        val bytes = cbor.encodeToByteArray(CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(PriceForecastSerializer, bytes)
+        }
+
+        assertEquals(1, decoded.entries.size)
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("INVALID_PRICE_ENTRY", collector.diagnostics[0].code)
+        assertTrue(collector.diagnostics[0].message.contains("amount"))
     }
 }

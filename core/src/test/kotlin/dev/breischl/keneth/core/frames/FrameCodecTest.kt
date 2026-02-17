@@ -121,6 +121,29 @@ class FrameCodecTest {
     }
 
     @Test
+    fun `decode warns on non-standard 9A array length but still parses valid frame`() {
+        // Build a valid frame, then replace the magic bytes with 9A + non-standard length
+        val frame = Frame(
+            headers = emptyMap(),
+            messageTypeId = 0x00000001u,
+            payload = byteArrayOf(0x01, 0x02)
+        )
+        val encoded = FrameCodec.encode(frame)
+
+        // Replace canonical magic (9A 00 00 00 03) with 9A and a different 4-byte length
+        // that still happens to be 3 (but in a weird encoding: 00 00 00 03 is correct,
+        // so use a truly different one like 00 00 01 03 which says array of 259 elements)
+        // This should warn but fail on element count mismatch
+        val modified = encoded.copyOf()
+        modified[3] = 0x01  // Changes length from 3 to 259
+
+        val result = FrameCodec.decode(modified)
+        // Should have the warning about non-standard array length
+        assertTrue(result.hasWarnings)
+        assertEquals("INVALID_ARRAY_LENGTH", result.diagnostics.first { it.code == "INVALID_ARRAY_LENGTH" }.code)
+    }
+
+    @Test
     fun `frame magic bytes are correct`() {
         val frame = Frame(
             headers = emptyMap(),
@@ -294,6 +317,25 @@ class FrameCodecTest {
                 assertTrue(result.hasErrors)
             }
         }
+    }
+
+    @Test
+    fun `decode rejects frame whose payload length exceeds input size`() {
+        // Hand-craft a frame where the payload bytestring header claims ~2 GB
+        // but only 1 byte of actual data follows. Without a read limit, OBOR
+        // would attempt to allocate a 2 GB ByteArray and throw OutOfMemoryError.
+        val bytes = byteArrayOf(
+            0x9A.toByte(), 0x00, 0x00, 0x00, 0x03, // magic: CBOR array(3), 4-byte length
+            0xF6.toByte(),                           // headers: CBOR null
+            0x1A, 0x00, 0x00, 0x00, 0x01,            // message type: uint32(1)
+            0x5A, 0x7F, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), // bytestring claiming ~2 GB
+            0x01                                      // one actual byte of data
+        )
+
+        val result = FrameCodec.decode(bytes)
+
+        assertFalse(result.succeeded)
+        assertTrue(result.hasErrors)
     }
 
     // -- Property-based tests: CBOR structural invariants --

@@ -1,5 +1,7 @@
 package dev.breischl.keneth.core.values
 
+import dev.breischl.keneth.core.diagnostics.DiagnosticCollector
+import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.arbitrary
 import io.kotest.property.arbitrary.double
@@ -7,8 +9,10 @@ import io.kotest.property.arbitrary.int
 import io.kotest.property.checkAll
 import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
+import net.orandja.obor.data.CborObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class SourceMixTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -40,6 +44,126 @@ class SourceMixTest {
             val decoded = cbor.decodeFromByteArray(SourceMixSerializer, bytes)
             assertEquals(original, decoded)
         }
+    }
+
+    @Test
+    fun `deserialize warns on duplicate source and keeps first`() {
+        val innerArray = CborObject.buildArray {
+            add(CborObject.buildMap {
+                put(
+                    CborObject.positive(EnergySource.WIND.id.toInt()),
+                    CborObject.buildMap {
+                        put(CborObject.positive(Percentage.TYPE_ID), CborObject.value(50.0))
+                    }
+                )
+            })
+            add(CborObject.buildMap {
+                put(
+                    CborObject.positive(EnergySource.WIND.id.toInt()),
+                    CborObject.buildMap {
+                        put(CborObject.positive(Percentage.TYPE_ID), CborObject.value(30.0))
+                    }
+                )
+            })
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(SourceMix.TYPE_ID), innerArray)
+        }
+        val bytes = cbor.encodeToByteArray(net.orandja.obor.data.CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(SourceMixSerializer, bytes)
+        }
+
+        assertEquals(1, decoded.mix.size)
+        assertEquals(Percentage(50.0), decoded.mix[EnergySource.WIND])
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("DUPLICATE_SOURCE", collector.diagnostics[0].code)
+    }
+
+    @Test
+    fun `deserialize skips unknown source IDs with warning`() {
+        val innerArray = CborObject.buildArray {
+            add(CborObject.buildMap {
+                put(
+                    CborObject.positive(EnergySource.WIND.id.toInt()),
+                    CborObject.buildMap {
+                        put(CborObject.positive(Percentage.TYPE_ID), CborObject.value(70.0))
+                    }
+                )
+            })
+            add(CborObject.buildMap {
+                put(
+                    CborObject.positive(0xFF),
+                    CborObject.buildMap {
+                        put(CborObject.positive(Percentage.TYPE_ID), CborObject.value(30.0))
+                    }
+                )
+            })
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(SourceMix.TYPE_ID), innerArray)
+        }
+        val bytes = cbor.encodeToByteArray(net.orandja.obor.data.CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(SourceMixSerializer, bytes)
+        }
+
+        assertEquals(1, decoded.mix.size)
+        assertEquals(Percentage(70.0), decoded.mix[EnergySource.WIND])
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("UNKNOWN_SOURCE_ID", collector.diagnostics[0].code)
+    }
+
+    @Test
+    fun `deserialize warns on missing percentage`() {
+        // Entry with wrong value-type key (Energy TYPE_ID instead of Percentage TYPE_ID)
+        val innerArray = CborObject.buildArray {
+            add(CborObject.buildMap {
+                put(
+                    CborObject.positive(EnergySource.WIND.id.toInt()),
+                    CborObject.buildMap {
+                        put(CborObject.positive(Energy.TYPE_ID), CborObject.value(100.0))
+                    }
+                )
+            })
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(SourceMix.TYPE_ID), innerArray)
+        }
+        val bytes = cbor.encodeToByteArray(net.orandja.obor.data.CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(SourceMixSerializer, bytes)
+        }
+
+        assertTrue(decoded.mix.isEmpty())
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("MISSING_PERCENTAGE", collector.diagnostics[0].code)
+    }
+
+    @Test
+    fun `deserialize warns on empty map entry`() {
+        val innerArray = CborObject.buildArray {
+            add(CborObject.buildMap { }) // empty map
+        }
+        val outerMap = CborObject.buildMap {
+            put(CborObject.positive(SourceMix.TYPE_ID), innerArray)
+        }
+        val bytes = cbor.encodeToByteArray(net.orandja.obor.data.CborMap.serializer(), outerMap)
+
+        val collector = DiagnosticCollector()
+        val decoded = DiagnosticContext.withCollector(collector) {
+            cbor.decodeFromByteArray(SourceMixSerializer, bytes)
+        }
+
+        assertTrue(decoded.mix.isEmpty())
+        assertEquals(1, collector.diagnostics.size)
+        assertEquals("EMPTY_SOURCE_ENTRY", collector.diagnostics[0].code)
     }
 
     @Test

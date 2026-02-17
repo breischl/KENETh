@@ -88,7 +88,7 @@ object FrameCodec {
      * @return A ParseResult containing the decoded frame or error diagnostics.
      */
     fun decode(bytes: ByteArray): ParseResult<Frame> {
-        return decodeFromStream(bytes.inputStream())
+        return decodeFromStream(bytes.inputStream(), maxBytes = bytes.size.toLong())
             ?: ParseResult.failure(
                 listOf(
                     Diagnostic(
@@ -111,7 +111,10 @@ object FrameCodec {
      * @param inputStream The stream to read from.
      * @return A ParseResult on success or failure, or null on clean EOF.
      */
-    fun decodeFromStream(inputStream: InputStream): ParseResult<Frame>? {
+    fun decodeFromStream(
+        inputStream: InputStream,
+        maxBytes: Long = InputStreamByteReader.DEFAULT_MAX_BYTES,
+    ): ParseResult<Frame>? {
         // Read first byte — EOF here means no more frames (clean end of stream)
         val firstByte = inputStream.read()
         if (firstByte == -1) return null
@@ -131,10 +134,12 @@ object FrameCodec {
                 if (rest[0] != 0x00.toByte() || rest[1] != 0x00.toByte() ||
                     rest[2] != 0x00.toByte() || rest[3] != 0x03.toByte()
                 ) {
-                    // TODO: Make this a warning instead, then return `rest` and see what OBOR is able to parse
-                    return streamError("INVALID_MAGIC", "Invalid array length after 9A header")
+                    collector.warning(
+                        "INVALID_ARRAY_LENGTH",
+                        "Non-standard array length after 9A header, attempting to parse"
+                    )
                 }
-                MAGIC_BYTES
+                byteArrayOf(0x9A.toByte()) + rest
             }
 
             0x83.toByte() -> {
@@ -159,19 +164,27 @@ object FrameCodec {
 
         // Feed validated header bytes + rest of stream to OBOR
         val combined = SequenceInputStream(headerBytes.inputStream(), inputStream)
-        val reader = CborReader.ByReader(InputStreamByteReader(combined))
-        val array: CborArray
+        val reader = CborReader.ByReader(InputStreamByteReader(combined, maxBytes))
+        val parsed: CborObject
         try {
-            //TODO: If we used CborObject.serializer() here, could we handle other types of objects?
-            // It wouldn't be valid EnergyNet, but might let us provide better diagnostics
-            array = cbor.decodeFromReader(CborArray.serializer(), reader)
+            parsed = cbor.decodeFromReader(CborObject.serializer(), reader)
         } catch (e: ReaderException) {
-            return streamError("READ_ERROR", "Incomplete frame: ${e.message}")
+            collector.error("READ_ERROR", "Incomplete frame: ${e.message}")
+            return ParseResult.failure(collector.diagnostics)
         } catch (e: Exception) {
-            return streamError("INVALID_FRAME", "Failed to decode frame: ${e.message}")
+            collector.error("INVALID_FRAME", "Failed to decode frame: ${e.message}")
+            return ParseResult.failure(collector.diagnostics)
         }
 
-        val frame = extractFrame(array, collector)
+        if (parsed !is CborArray) {
+            collector.error(
+                "INVALID_FRAME",
+                "Expected CBOR array, got ${parsed::class.simpleName}"
+            )
+            return ParseResult.failure(collector.diagnostics)
+        }
+
+        val frame = extractFrame(parsed, collector)
         return if (frame != null) {
             ParseResult.success(frame, collector.diagnostics)
         } else {

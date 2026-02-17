@@ -1,5 +1,6 @@
 package dev.breischl.keneth.core.values
 
+import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import dev.breischl.keneth.core.values.SerializerUtils.getByIntKey
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -57,10 +58,17 @@ object PriceForecastSerializer : KSerializer<PriceForecast> {
             ?: error("Missing price forecast value")
         val entriesArray = entriesObj as? CborArray
             ?: error("Expected CborArray for PriceForecast entries")
-        val entries = entriesArray.map { entryObj ->
+
+        val collector = DiagnosticContext.get()
+        val entries = mutableListOf<PriceForecastEntry>()
+        for (entryObj in entriesArray) {
             val entryArray = entryObj as? CborArray
-                ?: error("Expected CborArray for PriceEntry")
-            PriceForecastEntrySerializer.parsePriceEntry(entryArray)
+            if (entryArray == null) {
+                collector?.warning("INVALID_PRICE_ENTRY", "Expected CborArray for PriceEntry, skipping")
+                continue
+            }
+            val entry = PriceForecastEntrySerializer.parsePriceEntry(entryArray, collector)
+            if (entry != null) entries.add(entry)
         }
         return PriceForecast(entries)
     }

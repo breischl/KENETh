@@ -1,5 +1,6 @@
 package dev.breischl.keneth.core.values
 
+import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import dev.breischl.keneth.core.values.SerializerUtils.asCborMap
 import dev.breischl.keneth.core.values.SerializerUtils.getByIntKey
 import dev.breischl.keneth.core.values.SerializerUtils.toDoubleValue
@@ -64,15 +65,36 @@ object EnergyMixSerializer : KSerializer<EnergyMix> {
         val outerMap = decoder.decodeSerializableValue(CborMap.serializer())
         val innerObj = outerMap.getByIntKey(EnergyMix.TYPE_ID) ?: error("Missing energy mix value")
         val innerArray = innerObj as? CborArray ?: error("Expected CborArray for EnergyMix entries")
-        val mix = innerArray.mapNotNull { entryObj ->
+        val collector = DiagnosticContext.get()
+        val mix = mutableMapOf<EnergySource, Energy>()
+        for (entryObj in innerArray) {
             val entryMap = entryObj.asCborMap()
-            val entry = entryMap.asMap.entries.firstOrNull() ?: return@mapNotNull null
+            val entry = entryMap.asMap.entries.firstOrNull()
+            if (entry == null) {
+                collector?.warning("EMPTY_SOURCE_ENTRY", "Empty map in EnergyMix entry, skipping")
+                continue
+            }
             val sourceId = entry.key.toLongValue().toInt().toUByte()
-            val source = EnergySource.fromId(sourceId) ?: return@mapNotNull null
+            val source = EnergySource.fromId(sourceId)
+            if (source == null) {
+                collector?.warning(
+                    "UNKNOWN_SOURCE_ID",
+                    "Unknown source ID 0x${sourceId.toString(16)} in EnergyMix, skipping"
+                )
+                continue
+            }
             val wattHours = entry.value.asCborMap().getByIntKey(Energy.TYPE_ID)
-                ?.toDoubleValue() ?: return@mapNotNull null
-            source to Energy(wattHours)
-        }.toMap()
+                ?.toDoubleValue()
+            if (wattHours == null) {
+                collector?.warning("MISSING_ENERGY", "Missing energy value for source ${source.name}, skipping")
+                continue
+            }
+            if (source in mix) {
+                collector?.warning("DUPLICATE_SOURCE", "Duplicate source in EnergyMix: ${source.name}, keeping first")
+                continue
+            }
+            mix[source] = Energy(wattHours)
+        }
         return EnergyMix(mix)
     }
 }

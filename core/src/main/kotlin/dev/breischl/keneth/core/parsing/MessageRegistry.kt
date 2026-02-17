@@ -1,6 +1,7 @@
 package dev.breischl.keneth.core.parsing
 
 import dev.breischl.keneth.core.diagnostics.DiagnosticCollector
+import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import dev.breischl.keneth.core.messages.*
 import net.orandja.obor.codec.Cbor
 
@@ -42,7 +43,9 @@ object MessageRegistry {
 
         return { bytes, collector ->
             try {
-                cbor.decodeFromByteArray(serializer, bytes)
+                DiagnosticContext.withCollector(collector) {
+                    cbor.decodeFromByteArray(serializer, bytes)
+                }
             } catch (e: Exception) {
                 collector.error("PARSE_ERROR", "Failed to parse message type $typeId: ${e.message}")
                 null

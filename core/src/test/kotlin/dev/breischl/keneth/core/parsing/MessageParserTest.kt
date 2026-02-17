@@ -8,7 +8,11 @@ import dev.breischl.keneth.core.messages.SoftDisconnect
 import dev.breischl.keneth.core.messages.StorageParameters
 import dev.breischl.keneth.core.messages.SupplyParameters
 import dev.breischl.keneth.core.messages.UnknownMessage
+import dev.breischl.keneth.core.values.EnergySource
+import dev.breischl.keneth.core.values.Percentage
+import dev.breischl.keneth.core.values.SourceMix
 import net.orandja.obor.codec.Cbor
+import net.orandja.obor.data.CborObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -84,6 +88,58 @@ class MessageParserTest {
 
         assertFalse(result.succeeded)
         assertTrue(result.hasErrors)
+    }
+
+    @Test
+    fun `lenient parser propagates SourceMix warnings to ParseResult`() {
+        // Manually build a SourceMix with duplicate WIND entries and splice it
+        // into a SupplyParameters payload
+        val innerArray = CborObject.buildArray {
+            add(CborObject.buildMap {
+                put(
+                    CborObject.positive(EnergySource.WIND.id.toInt()),
+                    CborObject.buildMap {
+                        put(CborObject.positive(Percentage.TYPE_ID), CborObject.value(70.0))
+                    }
+                )
+            })
+            add(CborObject.buildMap {
+                put(
+                    CborObject.positive(EnergySource.WIND.id.toInt()),
+                    CborObject.buildMap {
+                        put(CborObject.positive(Percentage.TYPE_ID), CborObject.value(30.0))
+                    }
+                )
+            })
+        }
+        val sourceMixCbor = CborObject.buildMap {
+            put(CborObject.positive(SourceMix.TYPE_ID), innerArray)
+        }
+        val payload = cbor.encodeToByteArray(
+            net.orandja.obor.data.CborMap.serializer(),
+            CborObject.buildMap {
+                put(
+                    CborObject.positive(SupplyParameters.FIELD_POWER_MIX),
+                    sourceMixCbor
+                )
+            }
+        )
+
+        val frame = Frame(
+            headers = emptyMap(),
+            messageTypeId = SupplyParameters.TYPE_ID,
+            payload = payload
+        )
+
+        val result = lenientParser.parseMessage(frame)
+
+        assertTrue(result.succeeded)
+        assertTrue(result.hasWarnings)
+        assertFalse(result.hasErrors)
+        val parsed = result.value as SupplyParameters
+        assertEquals(1, parsed.powerMix!!.mix.size)
+        assertEquals(Percentage(70.0), parsed.powerMix.mix[EnergySource.WIND])
+        assertTrue(result.diagnostics.any { it.code == "DUPLICATE_SOURCE" })
     }
 
     @Test
