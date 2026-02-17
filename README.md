@@ -1,5 +1,7 @@
 # KENETh: Kotlin EnergyNET Protocol Library
 
+[![CI](https://github.com/breischl/KENETh/actions/workflows/ci.yml/badge.svg)](https://github.com/breischl/KENETh/actions/workflows/ci.yml)
+
 ## Overview
 
 A Kotlin library for working with the EnergyNet Protocol (EP). Includes serialization and transport code, with plans
