@@ -1,6 +1,8 @@
 package dev.breischl.keneth.transport.tls
 
 import dev.breischl.keneth.transport.SocketTransport
+import dev.breischl.keneth.transport.TransportListener
+import dev.breischl.keneth.transport.safeNotify
 import java.net.Socket
 import javax.net.ssl.SSLSocket
 
@@ -25,25 +27,37 @@ import javax.net.ssl.SSLSocket
 class TlsClientTransport(
     private val host: String,
     private val port: Int = DEFAULT_PORT,
-    private val config: TlsConfig
+    private val config: TlsConfig,
+    listener: TransportListener? = null
 ) : SocketTransport() {
+
+    init {
+        this.listener = listener
+    }
 
     override fun socket(): Socket {
         synchronized(lock) {
             socket?.let { if (!it.isClosed) return it }
 
-            val sslContext = config.createSslContext()
-            val newSocket = sslContext.socketFactory.createSocket(host, port) as SSLSocket
+            listener.safeNotify { onConnecting(host, port) }
+            try {
+                val sslContext = config.createSslContext()
+                val newSocket = sslContext.socketFactory.createSocket(host, port) as SSLSocket
 
-            if (!config.insecureTrustAll && config.verifyHostname) {
-                val sslParams = newSocket.sslParameters
-                sslParams.endpointIdentificationAlgorithm = "HTTPS"
-                newSocket.sslParameters = sslParams
+                if (!config.insecureTrustAll && config.verifyHostname) {
+                    val sslParams = newSocket.sslParameters
+                    sslParams.endpointIdentificationAlgorithm = "HTTPS"
+                    newSocket.sslParameters = sslParams
+                }
+
+                newSocket.startHandshake()
+                socket = newSocket
+                listener.safeNotify { onConnected(host, port) }
+                return newSocket
+            } catch (e: Exception) {
+                listener.safeNotify { onConnectionError(e) }
+                throw e
             }
-
-            newSocket.startHandshake()
-            socket = newSocket
-            return newSocket
         }
     }
 }

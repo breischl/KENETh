@@ -25,6 +25,7 @@ abstract class SocketTransport : FrameTransport {
 
     internal var socket: Socket? = null
     protected val lock = Any()
+    internal var listener: TransportListener? = null
 
     protected abstract fun socket(): Socket
 
@@ -32,8 +33,10 @@ abstract class SocketTransport : FrameTransport {
         withContext(Dispatchers.IO) {
             val socket = socket()
             val bytes = FrameCodec.encode(frame)
+            listener.safeNotify { onFrameSending(frame, bytes) }
             socket.getOutputStream().write(bytes)
             socket.getOutputStream().flush()
+            listener.safeNotify { onFrameSent(frame, bytes) }
         }
     }
 
@@ -44,6 +47,7 @@ abstract class SocketTransport : FrameTransport {
         try {
             while (!socket.isClosed) {
                 val result = FrameCodec.decodeFromStream(inputStream) ?: break
+                listener.safeNotify { onFrameReceived(result) }
                 emit(result)
             }
         } catch (_: IOException) {
@@ -61,5 +65,6 @@ abstract class SocketTransport : FrameTransport {
             }
             socket = null
         }
+        listener.safeNotify { onDisconnected() }
     }
 }

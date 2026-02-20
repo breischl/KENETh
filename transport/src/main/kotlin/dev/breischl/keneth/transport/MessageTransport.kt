@@ -50,7 +50,8 @@ import java.io.Closeable
  */
 class MessageTransport(
     private val frameTransport: FrameTransport,
-    private val messageParser: MessageParser = LenientMessageParser()
+    private val messageParser: MessageParser = LenientMessageParser(),
+    private val listener: TransportListener? = null
 ) : Closeable {
     // "ingnoreUnknownKeys" is a typo in the OBOR library API (should be "ignore")
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -67,7 +68,9 @@ class MessageTransport(
             message.payloadSerializer as KSerializer<Message>,
             message
         )
+        listener.safeNotify { onMessageSending(message, CborSnapshot(payload)) }
         frameTransport.send(Frame(headers, message.typeId, payload))
+        listener.safeNotify { onMessageSent(message) }
     }
 
     /**
@@ -79,12 +82,16 @@ class MessageTransport(
     fun receive(): Flow<ReceivedMessage> {
         return frameTransport.receive().map { frameResult ->
             if (!frameResult.succeeded) {
-                ReceivedMessage(null, emptyMap(), frameResult.diagnostics)
+                val received = ReceivedMessage(null, emptyMap(), frameResult.diagnostics)
+                listener.safeNotify { onMessageReceived(received, null) }
+                received
             } else {
                 val frame = frameResult.value!!
                 val messageResult = messageParser.parseMessage(frame)
                 val diagnostics = frameResult.diagnostics + messageResult.diagnostics
-                ReceivedMessage(messageResult.value, frame.headers, diagnostics)
+                val received = ReceivedMessage(messageResult.value, frame.headers, diagnostics)
+                listener.safeNotify { onMessageReceived(received, CborSnapshot(frame.payload)) }
+                received
             }
         }
     }

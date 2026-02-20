@@ -1,6 +1,8 @@
 package dev.breischl.keneth.transport.tcp
 
 import dev.breischl.keneth.transport.SocketTransport
+import dev.breischl.keneth.transport.TransportListener
+import dev.breischl.keneth.transport.safeNotify
 import java.io.IOException
 import java.net.Socket
 
@@ -18,9 +20,11 @@ import java.net.Socket
  *
  * @param socket The already-connected socket from [java.net.ServerSocket.accept].
  */
-class RawTcpServerTransport(socket: Socket) : SocketTransport() {
+class RawTcpServerTransport(socket: Socket, listener: TransportListener? = null) : SocketTransport() {
     init {
+        this.listener = listener
         this.socket = socket
+        listener.safeNotify { onConnected(socket.inetAddress.hostAddress, socket.port) }
     }
 
     override fun socket(): Socket {

@@ -1,6 +1,8 @@
 package dev.breischl.keneth.transport.tls
 
 import dev.breischl.keneth.transport.SocketTransport
+import dev.breischl.keneth.transport.TransportListener
+import dev.breischl.keneth.transport.safeNotify
 import java.io.IOException
 import java.net.Socket
 import javax.net.ssl.SSLSocket
@@ -20,8 +22,13 @@ import javax.net.ssl.SSLSocket
  * @param socket The already-connected SSL socket from [javax.net.ssl.SSLServerSocket.accept].
  * @param config The TLS configuration (used to apply [TlsConfig.clientAuth]).
  */
-class TlsServerTransport(socket: SSLSocket, config: TlsConfig) : SocketTransport() {
+class TlsServerTransport(
+    socket: SSLSocket,
+    config: TlsConfig,
+    listener: TransportListener? = null
+) : SocketTransport() {
     init {
+        this.listener = listener
         when (config.clientAuth) {
             ClientAuth.NONE -> { /* default */
             }
@@ -31,6 +38,7 @@ class TlsServerTransport(socket: SSLSocket, config: TlsConfig) : SocketTransport
         }
         socket.startHandshake()
         this.socket = socket
+        listener.safeNotify { onConnected(socket.inetAddress.hostAddress, socket.port) }
     }
 
     override fun socket(): Socket {

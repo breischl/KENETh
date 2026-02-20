@@ -102,6 +102,42 @@ and message parsing. Most callers should use `MessageTransport`.
 All socket-based transports extend `SocketTransport`, which handles frame I/O and
 wire-format encoding/decoding via `FrameCodec`.
 
+## Debug listener
+
+All transports accept an optional `TransportListener` for observing wire activity
+without adding a logging dependency:
+
+```kotlin
+val listener = object : TransportListener {
+  override fun onConnecting(host: String, port: Int) = println("Connecting to $host:$port")
+  override fun onConnected(host: String, port: Int) = println("Connected to $host:$port")
+  override fun onMessageSending(message: Message, payloadCbor: CborSnapshot) {
+    println("Sending ${message::class.simpleName}: ${payloadCbor.hex}")
+    println(payloadCbor.prettyTree)
+  }
+  override fun onMessageReceived(received: ReceivedMessage, payloadCbor: CborSnapshot?) {
+    println("Received: ${received.message}")
+  }
+}
+
+val frameTransport = RawTcpClientTransport("charger.local", listener = listener)
+val transport = MessageTransport(frameTransport, listener = listener)
+```
+
+Or use the built-in `PrintTransportListener` for quick stdout logging:
+
+```kotlin
+val listener = PrintTransportListener()
+val frameTransport = RawTcpClientTransport("charger.local", listener = listener)
+val transport = MessageTransport(frameTransport, listener = listener)
+```
+
+All listener methods have default no-op implementations — override only what you need.
+`CborSnapshot` lazily computes `hex` and `prettyTree`, so there's no cost if unused.
+Exceptions thrown by listener methods are silently swallowed.
+
+See [EXAMPLE_OUTPUT.txt](EXAMPLE_OUTPUT.txt) for sample output from `PrintTransportListener`.
+
 ## Parsing modes
 
 `MessageTransport` accepts a `MessageParser` to control how received messages are decoded:

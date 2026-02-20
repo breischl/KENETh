@@ -1,6 +1,8 @@
 package dev.breischl.keneth.transport.tcp
 
 import dev.breischl.keneth.transport.SocketTransport
+import dev.breischl.keneth.transport.TransportListener
+import dev.breischl.keneth.transport.safeNotify
 import java.net.Socket
 
 /**
@@ -24,15 +26,27 @@ import java.net.Socket
  */
 class RawTcpClientTransport(
     val host: String,
-    val port: Int = DEFAULT_PORT
+    val port: Int = DEFAULT_PORT,
+    listener: TransportListener? = null
 ) : SocketTransport() {
+
+    init {
+        this.listener = listener
+    }
 
     override fun socket(): Socket {
         synchronized(lock) {
             socket?.let { if (!it.isClosed) return it }
-            val newSocket = Socket(host, port)
-            socket = newSocket
-            return newSocket
+            listener.safeNotify { onConnecting(host, port) }
+            try {
+                val newSocket = Socket(host, port)
+                socket = newSocket
+                listener.safeNotify { onConnected(host, port) }
+                return newSocket
+            } catch (e: Exception) {
+                listener.safeNotify { onConnectionError(e) }
+                throw e
+            }
         }
     }
 }
