@@ -93,6 +93,7 @@ internal object SerializerUtils {
         return (this as? CborBytes)?.value ?: error("Expected CborBytes, got ${this::class.simpleName}")
     }
 
+    // "ingnoreUnknownKeys" is a typo in the OBOR library API (should be "ignore")
     private val cbor = Cbor { ingnoreUnknownKeys = true }
 
     /** Convert a value to its CborObject representation using the given serializer. */

@@ -41,9 +41,15 @@ abstract class SocketTransport : FrameTransport {
         val socket = socket()
         val inputStream = socket.getInputStream()
 
-        while (!socket.isClosed) {
-            val result = FrameCodec.decodeFromStream(inputStream) ?: break
-            emit(result)
+        try {
+            while (!socket.isClosed) {
+                val result = FrameCodec.decodeFromStream(inputStream) ?: break
+                emit(result)
+            }
+        } catch (_: IOException) {
+            // Socket was closed (locally or remotely) while blocked on read.
+            // SocketException for plain TCP, SSLException for TLS — both are IOExceptions.
+            // Complete the flow normally rather than propagating the exception.
         }
     }.flowOn(Dispatchers.IO)
 

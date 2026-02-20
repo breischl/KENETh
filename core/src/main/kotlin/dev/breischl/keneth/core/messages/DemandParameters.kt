@@ -27,8 +27,10 @@ import net.orandja.obor.data.CborObject
  *
  * @property voltage The requested voltage.
  * @property current The requested current.
- * @property voltageLimits The voltage limits the vehicle can accept.
- * @property currentLimits The current limits the vehicle can accept.
+ * @property voltageLimits The maximum voltage the vehicle can accept (scalar per spec section 4.5,
+ *   unlike SupplyParameters which uses Bounds).
+ * @property currentLimits The maximum current the vehicle can accept (scalar per spec section 4.5,
+ *   unlike SupplyParameters which uses Bounds).
  * @property powerLimit The maximum power the vehicle can accept.
  * @property duration The expected duration of the charging session.
  */

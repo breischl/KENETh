@@ -4,6 +4,8 @@ import dev.breischl.keneth.core.parsing.ParseResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class DiagnosticsTest {
@@ -62,6 +64,61 @@ class DiagnosticsTest {
 
         assertEquals(10, warnings[1].byteOffset)
         assertEquals("field.path", errors[1].fieldPath)
+    }
+
+    // -- DiagnosticContext tests --
+
+    @Test
+    fun `DiagnosticContext is null when no collector is active`() {
+        assertNull(DiagnosticContext.get())
+    }
+
+    @Test
+    fun `DiagnosticContext provides collector inside withCollector`() {
+        val collector = DiagnosticCollector()
+        DiagnosticContext.withCollector(collector) {
+            assertSame(collector, DiagnosticContext.get())
+        }
+    }
+
+    @Test
+    fun `DiagnosticContext restores null after withCollector completes`() {
+        val collector = DiagnosticCollector()
+        DiagnosticContext.withCollector(collector) { }
+        assertNull(DiagnosticContext.get())
+    }
+
+    @Test
+    fun `DiagnosticContext supports nesting and restores previous collector`() {
+        val outer = DiagnosticCollector()
+        val inner = DiagnosticCollector()
+
+        DiagnosticContext.withCollector(outer) {
+            assertSame(outer, DiagnosticContext.get())
+
+            DiagnosticContext.withCollector(inner) {
+                assertSame(inner, DiagnosticContext.get())
+            }
+
+            assertSame(outer, DiagnosticContext.get())
+        }
+
+        assertNull(DiagnosticContext.get())
+    }
+
+    @Test
+    fun `DiagnosticContext restores previous collector even when block throws`() {
+        val outer = DiagnosticCollector()
+        val inner = DiagnosticCollector()
+
+        DiagnosticContext.withCollector(outer) {
+            runCatching {
+                DiagnosticContext.withCollector(inner) {
+                    throw RuntimeException("test")
+                }
+            }
+            assertSame(outer, DiagnosticContext.get())
+        }
     }
 
     @Test

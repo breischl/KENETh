@@ -39,6 +39,7 @@ object FrameCodec {
     /** Magic bytes identifying the EnergyNet Protocol (CBOR array(3) with 4-byte length). */
     val MAGIC_BYTES = byteArrayOf(0x9A.toByte(), 0x00, 0x00, 0x00, 0x03)
 
+    // "ingnoreUnknownKeys" is a typo in the OBOR library API (should be "ignore")
     private val cbor = Cbor { ingnoreUnknownKeys = true }
 
     /**

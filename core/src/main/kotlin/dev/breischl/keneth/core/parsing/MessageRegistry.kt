@@ -21,6 +21,7 @@ typealias MessageParserFunc = (ByteArray, DiagnosticCollector) -> Message?
  * to decode message payloads.
  */
 object MessageRegistry {
+    // "ingnoreUnknownKeys" is a typo in the OBOR library API (should be "ignore")
     private val cbor = Cbor { ingnoreUnknownKeys = true }
 
     private val messageTypes = mapOf(

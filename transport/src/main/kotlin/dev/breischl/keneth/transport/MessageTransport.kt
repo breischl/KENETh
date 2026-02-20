@@ -52,6 +52,7 @@ class MessageTransport(
     private val frameTransport: FrameTransport,
     private val messageParser: MessageParser = LenientMessageParser()
 ) : Closeable {
+    // "ingnoreUnknownKeys" is a typo in the OBOR library API (should be "ignore")
     private val cbor = Cbor { ingnoreUnknownKeys = true }
 
     /**

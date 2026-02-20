@@ -7,6 +7,7 @@ import dev.breischl.keneth.transport.assertFrameEquals
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -127,20 +128,16 @@ class TlsTransportTest {
         val clientResult = CompletableDeferred<ParseResult<Frame>>()
 
         val serverJob = launch(Dispatchers.IO) {
-            runCatching {
-                serverSide.receive().collect { serverResult.complete(it) }
-            }
+            serverSide.receive().collect { serverResult.complete(it) }
         }
         val clientJob = launch(Dispatchers.IO) {
-            runCatching {
-                client.receive().collect { clientResult.complete(it) }
-            }
+            client.receive().collect { clientResult.complete(it) }
         }
 
         val receivedByServer = serverResult.await()
         val receivedByClient = clientResult.await()
 
-        // Close transports so the blocked producers see EOF / SocketException and exit
+        // Close transports so the blocked producers see EOF and exit
         client.close()
         serverSide.close()
         serverJob.join()
@@ -241,6 +238,60 @@ class TlsTransportTest {
 
         val result = client.receive().first()
         assertFrameEquals(frame, result)
+    }
+
+    @Test
+    fun `local close completes receive flow`() = runTest {
+        val server = startTlsServer()
+        val client = createTlsClient(server)
+
+        // Client must initiate TLS connection
+        val initFrame = Frame(emptyMap(), 0xFFFF_FFFFu, byteArrayOf())
+        val sendJob = launch { client.send(initFrame) }
+        acceptTlsConnection(server)
+        sendJob.join()
+
+        // Start receiving on IO dispatcher — will block on read
+        val receiveDeferred = async(Dispatchers.IO) { client.receive().toList() }
+
+        // Real delay to let the receive coroutine start blocking on IO
+        withContext(Dispatchers.IO) { Thread.sleep(100) }
+
+        // Close the local transport while receive is blocked
+        client.close()
+
+        val results = receiveDeferred.await()
+        assertTrue(results.isEmpty())
+    }
+
+    @Test
+    fun `client close is idempotent`() = runTest {
+        val server = startTlsServer()
+        val client = createTlsClient(server)
+
+        val frame = Frame(emptyMap(), 0xFFFF_FFFFu, byteArrayOf())
+        val sendJob = launch { client.send(frame) }
+        acceptTlsConnection(server)
+        sendJob.join()
+
+        client.close()
+        client.close()
+        client.close()
+    }
+
+    @Test
+    fun `server transport close is idempotent`() = runTest {
+        val server = startTlsServer()
+        val client = createTlsClient(server)
+
+        val frame = Frame(emptyMap(), 0xFFFF_FFFFu, byteArrayOf())
+        val sendJob = launch { client.send(frame) }
+        val serverSide = acceptTlsConnection(server)
+        sendJob.join()
+
+        serverSide.close()
+        serverSide.close()
+        serverSide.close()
     }
 
     @Test

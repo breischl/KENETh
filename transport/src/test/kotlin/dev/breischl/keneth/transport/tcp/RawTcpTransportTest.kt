@@ -6,6 +6,7 @@ import dev.breischl.keneth.transport.TransportTracker
 import dev.breischl.keneth.transport.assertFrameEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -162,6 +163,92 @@ class RawTcpTransportTest {
         assertFailsWith<Exception> {
             transport.send(frame)
         }
+    }
+
+    // -- Close behavior tests --
+
+    @Test
+    fun `local close completes receive flow`() = runTest {
+        val server = startTestServer()
+        val transport = createClientTransport(server)
+
+        // Start receiving — this will block on inputStream.read()
+        val receiveDeferred = async(Dispatchers.IO) { transport.receive().toList() }
+        acceptConnection(server) // ensure connection is established
+
+        // Real delay to let the receive coroutine start blocking on IO
+        withContext(Dispatchers.IO) { Thread.sleep(100) }
+
+        // Close the local transport while receive is blocked
+        transport.close()
+
+        val results = receiveDeferred.await()
+        assertTrue(results.isEmpty())
+    }
+
+    @Test
+    fun `client close is idempotent`() = runTest {
+        val server = startTestServer()
+        val transport = createClientTransport(server)
+        val frame = Frame(emptyMap(), 0xFFFF_FFFFu, byteArrayOf())
+
+        // Connect by sending
+        val sendJob = launch { transport.send(frame) }
+        acceptConnection(server)
+        sendJob.join()
+
+        // Close multiple times — should not throw
+        transport.close()
+        transport.close()
+        transport.close()
+    }
+
+    @Test
+    fun `server transport close is idempotent`() = runTest {
+        val server = startTestServer()
+        val client = createClientTransport(server)
+        val frame = Frame(emptyMap(), 0xFFFF_FFFFu, byteArrayOf())
+
+        val sendJob = launch { client.send(frame) }
+        val accepted = acceptConnection(server)
+        val serverSide = RawTcpServerTransport(accepted)
+        tracker.serverTransport = serverSide
+        sendJob.join()
+
+        // Close multiple times — should not throw
+        serverSide.close()
+        serverSide.close()
+        serverSide.close()
+    }
+
+    @Test
+    fun `client reconnects after close`() = runTest {
+        val server = startTestServer()
+        val transport = createClientTransport(server)
+        val frame = Frame(emptyMap(), 0xFFFF_FFFFu, byteArrayOf())
+
+        // First connection
+        val sendJob1 = launch { transport.send(frame) }
+        val accepted1 = acceptConnection(server)
+        sendJob1.join()
+        val bytes1 = withContext(Dispatchers.IO) {
+            accepted1.getInputStream().readNBytes(FrameCodec.encode(frame).size)
+        }
+        val result1 = FrameCodec.decode(bytes1)
+        assertFrameEquals(frame, result1)
+
+        // Close the transport
+        transport.close()
+
+        // Send again — should reconnect automatically
+        val sendJob2 = launch { transport.send(frame) }
+        val accepted2 = acceptConnection(server)
+        sendJob2.join()
+        val bytes2 = withContext(Dispatchers.IO) {
+            accepted2.getInputStream().readNBytes(FrameCodec.encode(frame).size)
+        }
+        val result2 = FrameCodec.decode(bytes2)
+        assertFrameEquals(frame, result2)
     }
 
     // -- Integration tests (two RawTcpTransport instances) --
