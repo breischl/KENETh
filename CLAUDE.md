@@ -35,3 +35,15 @@ This is a Kotlin/JVM multi-module Gradle project with centralized build configur
 - Convention plugin at `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts` configures JVM toolchain and JUnit Platform for all modules
 - Version catalog at `gradle/libs.versions.toml` manages all dependency versions
 - Build cache and configuration cache enabled in `gradle.properties`
+
+## Making Changes
+
+When making code changes, use red/green TDD (tests first, ensure they fail, then make them pass). Particularly for
+bugfixes. Tests should be named in such that the code under test, situation being tested, and expected result are all
+visible in the test method name.
+
+In production code, public classes and methods intended as part of the API surface should always documentation comments.
+Non-API classes and methods should have comments unless they are trivial. Test classes and methods only require comments
+for tricky or complex areas.
+
+Keep the README.md and CLAUDE.md updated as appropriate. 

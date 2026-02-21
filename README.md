@@ -23,6 +23,12 @@ Message models, value types, CBOR serialization, frame encoding/decoding.
 #### [keneth-transport](transport/README.md)
 Transport abstractions and TCP/TLS implementations. BLE deferred but interface accommodates it.
 
+#### keneth-server
+
+EP server with session management, TCP accept loop, and peer configuration. Manages device connections,
+enforces the EP handshake protocol, and tracks per-device state. Supports named peers with inbound matching
+by identity and outbound connection initiation.
+
 ### Build
 This project uses [Gradle](https://gradle.org/).
 
