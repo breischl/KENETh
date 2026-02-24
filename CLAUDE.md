@@ -7,8 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 ./gradlew run      # Build and run the application
 ./gradlew build    # Build only
-./gradlew check    # Run all checks including tests
+./gradlew check    # Run all checks including tests and detekt
 ./gradlew clean    # Clean build outputs
+./gradlew detekt   # Run detekt static analysis only
 
 # Run tests for a specific module
 ./gradlew :core:test
@@ -32,8 +33,10 @@ This is a Kotlin/JVM multi-module Gradle project with centralized build configur
 
 - **JDK 25** (Temurin) via Gradle toolchains
 - **Kotlin 2.3.0** with kotlinx ecosystem (coroutines, serialization, datetime)
-- Convention plugin at `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts` configures JVM toolchain and JUnit Platform for all modules
+- Convention plugin at `buildSrc/src/main/kotlin/kotlin-jvm.gradle.kts` configures JVM toolchain, JUnit Platform, and
+  detekt for all modules
 - Version catalog at `gradle/libs.versions.toml` manages all dependency versions
+- **detekt** 2.0.0-alpha.2 for static analysis, configured at `config/detekt/detekt.yml`
 - Build cache and configuration cache enabled in `gradle.properties`
 
 ## Making Changes

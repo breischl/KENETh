@@ -1,0 +1,46 @@
+# Detekt configuration
+# Only rules that differ from defaults are listed here.
+# See https://detekt.dev/docs/rules/ for the full rule reference.
+
+style:
+  # Allow wildcard imports for common packages where expanding them adds noise
+  WildcardImport:
+    excludeImports:
+      - 'java.util.*'
+      - 'kotlinx.coroutines.*'
+      - 'kotlin.test.*'
+      - 'dev.breischl.keneth.core.messages.*'
+      - 'dev.breischl.keneth.core.values.*'
+      - 'dev.breischl.keneth.core.parsing.*'
+      - 'dev.breischl.keneth.core.diagnostics.*'
+
+  # Early returns with sealed results and guard clauses are idiomatic
+  ReturnCount:
+    max: 4
+    excludeGuardClauses: true
+
+  MaxLineLength:
+    maxLineLength: 280
+
+  # TODOs are fine during active development
+  ForbiddenComment:
+    comments:
+      - reason: 'Forbidden FIXME todo marker in comment, please fix the problem.'
+        value: 'FIXME:'
+      - reason: 'Forbidden STOPSHIP todo marker in comment, please address the problem before shipping the code.'
+        value: 'STOPSHIP:'
+
+naming:
+  # Allow underscore-prefixed constructor params for internal backing fields
+  ConstructorParameterNaming:
+    privateParameterPattern: '(_)?[a-z][A-Za-z0-9]*'
+
+empty-blocks:
+  # Test fakes commonly have empty override bodies
+  EmptyFunctionBlock:
+    ignoreOverridden: true
+
+exceptions:
+  # Test code legitimately throws RuntimeException for test fakes
+  TooGenericExceptionThrown:
+    excludes: [ '**/test/**' ]
