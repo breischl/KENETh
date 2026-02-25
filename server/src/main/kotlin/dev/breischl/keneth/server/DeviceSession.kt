@@ -38,9 +38,13 @@ class DeviceSession internal constructor(
     var latestStorage: StorageParameters? = null
         internal set
 
+    /** Called after each successful [send]. Set by [EpServer] to fire listener notifications. */
+    internal var afterSend: ((Message) -> Unit)? = null
+
     /** Send a message to this device. */
     suspend fun send(message: Message) {
         transport.send(message)
+        afterSend?.invoke(message)
     }
 
     /**

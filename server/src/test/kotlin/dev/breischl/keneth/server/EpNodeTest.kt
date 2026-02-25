@@ -74,22 +74,22 @@ class EpNodeTest {
     /** Records all NodeListener calls for verification. */
     private class RecordingNodeListener : NodeListener {
         val events = mutableListOf<String>()
-        val connectedPeers = mutableListOf<Peer>()
-        val disconnectedPeers = mutableListOf<Peer>()
-        val parameterUpdates = mutableListOf<Pair<Peer, Message>>()
+        val connectedPeers = mutableListOf<PeerSnapshot>()
+        val disconnectedPeers = mutableListOf<PeerSnapshot>()
+        val parameterUpdates = mutableListOf<Pair<PeerSnapshot, Message>>()
         val errors = mutableListOf<Throwable>()
 
-        override fun onPeerConnected(peer: Peer) {
+        override fun onPeerConnected(peer: PeerSnapshot) {
             events.add("connected:${peer.peerId}")
             connectedPeers.add(peer)
         }
 
-        override fun onPeerDisconnected(peer: Peer) {
+        override fun onPeerDisconnected(peer: PeerSnapshot) {
             events.add("disconnected:${peer.peerId}")
             disconnectedPeers.add(peer)
         }
 
-        override fun onPeerParametersUpdated(peer: Peer, message: Message) {
+        override fun onPeerParametersUpdated(peer: PeerSnapshot, message: Message) {
             events.add("params:${peer.peerId}:${message::class.simpleName}")
             parameterUpdates.add(peer to message)
         }

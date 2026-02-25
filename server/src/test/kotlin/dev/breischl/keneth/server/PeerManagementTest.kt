@@ -90,27 +90,27 @@ class PeerManagementTest {
 
     private class RecordingListener : ServerListener {
         val events = mutableListOf<String>()
-        val connectedPeers = mutableListOf<Peer>()
-        val disconnectedPeers = mutableListOf<Peer>()
+        val connectedPeers = mutableListOf<PeerSnapshot>()
+        val disconnectedPeers = mutableListOf<PeerSnapshot>()
 
-        override fun onSessionCreated(session: DeviceSession) {
+        override fun onSessionCreated(session: DeviceSessionSnapshot) {
             events.add("sessionCreated")
         }
 
-        override fun onSessionActive(session: DeviceSession) {
+        override fun onSessionActive(session: DeviceSessionSnapshot) {
             events.add("sessionActive")
         }
 
-        override fun onSessionClosed(session: DeviceSession) {
+        override fun onSessionClosed(session: DeviceSessionSnapshot) {
             events.add("sessionClosed")
         }
 
-        override fun onPeerConnected(peer: Peer) {
+        override fun onPeerConnected(peer: PeerSnapshot) {
             events.add("peerConnected:${peer.peerId}")
             synchronized(connectedPeers) { connectedPeers.add(peer) }
         }
 
-        override fun onPeerDisconnected(peer: Peer) {
+        override fun onPeerDisconnected(peer: PeerSnapshot) {
             events.add("peerDisconnected:${peer.peerId}")
             synchronized(disconnectedPeers) { disconnectedPeers.add(peer) }
         }

@@ -21,13 +21,13 @@ val node = EpNode(
         listenPort = 56540,
     ),
     listener = object : NodeListener {
-        override fun onPeerConnected(peer: Peer) {
+        override fun onPeerConnected(peer: PeerSnapshot) {
             println("Peer connected: ${peer.peerId}")
         }
-        override fun onPeerDisconnected(peer: Peer) {
+        override fun onPeerDisconnected(peer: PeerSnapshot) {
             println("Peer disconnected: ${peer.peerId}")
         }
-        override fun onPeerParametersUpdated(peer: Peer, message: Message) {
+        override fun onPeerParametersUpdated(peer: PeerSnapshot, message: Message) {
             println("${peer.peerId} sent ${message::class.simpleName}")
         }
     },
@@ -141,10 +141,10 @@ For advanced use cases, `EpServer` can be used directly without `EpNode`:
 val server = EpServer(
     serverParameters = SessionParameters(identity = "custom-server"),
     listener = object : ServerListener {
-        override fun onSessionActive(session: DeviceSession) {
+        override fun onSessionActive(session: DeviceSessionSnapshot) {
             println("Session active: ${session.sessionParameters?.identity}")
         }
-        override fun onMessageReceived(session: DeviceSession, message: Message) {
+        override fun onMessageReceived(session: DeviceSessionSnapshot, message: Message) {
             println("Received: ${message::class.simpleName}")
         }
     },

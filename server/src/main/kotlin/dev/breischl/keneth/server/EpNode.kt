@@ -166,11 +166,11 @@ class EpNode(
             } finally {
                 transfer._state = TransferState.STOPPED
                 transfers.remove(peerId)
-                listener.safeNotify { onTransferStopped(transfer) }
+                listener.safeNotify { onTransferStopped(transfer.snapshot()) }
             }
         }
 
-        listener.safeNotify { onTransferStarted(transfer) }
+        listener.safeNotify { onTransferStarted(transfer.snapshot()) }
         return StartTransferResult.Success(transfer)
     }
 
@@ -204,28 +204,36 @@ class EpNode(
      * Translates low-level session events into the higher-level peer-focused API:
      * - Peer connect/disconnect → [NodeListener.onPeerConnected] / [NodeListener.onPeerDisconnected]
      * - Supply/Demand/Storage messages → [NodeListener.onPeerParametersUpdated]
+     * - Sent messages → [NodeListener.onMessageSent]
      * - Session errors → [NodeListener.onError]
      */
     private inner class BridgingServerListener : ServerListener {
-        override fun onPeerConnected(peer: Peer) {
+        override fun onPeerConnected(peer: PeerSnapshot) {
             listener.safeNotify { onPeerConnected(peer) }
         }
 
-        override fun onPeerDisconnected(peer: Peer) {
+        override fun onPeerDisconnected(peer: PeerSnapshot) {
             stopTransfer(peer.peerId)
             listener.safeNotify { onPeerDisconnected(peer) }
         }
 
-        override fun onMessageReceived(session: DeviceSession, message: Message) {
+        override fun onMessageReceived(session: DeviceSessionSnapshot, message: Message) {
             if (message is SupplyParameters || message is DemandParameters || message is StorageParameters) {
                 val peer = server.peerForSession(session.id)
                 if (peer != null) {
-                    listener.safeNotify { onPeerParametersUpdated(peer, message) }
+                    listener.safeNotify { onPeerParametersUpdated(peer.snapshot(), message) }
                 }
             }
         }
 
-        override fun onSessionError(session: DeviceSession, error: Throwable) {
+        override fun onMessageSent(session: DeviceSessionSnapshot, message: Message) {
+            val peer = server.peerForSession(session.id)
+            if (peer != null) {
+                listener.safeNotify { onMessageSent(peer.snapshot(), message) }
+            }
+        }
+
+        override fun onSessionError(session: DeviceSessionSnapshot, error: Throwable) {
             listener.safeNotify { onError(error) }
         }
     }

@@ -112,34 +112,34 @@ class EpServerTest {
         var lastError: Throwable? = null
         val receivedMessages = mutableListOf<Message>()
 
-        override fun onSessionCreated(session: DeviceSession) {
+        override fun onSessionCreated(session: DeviceSessionSnapshot) {
             events.add("created")
         }
 
-        override fun onSessionActive(session: DeviceSession) {
+        override fun onSessionActive(session: DeviceSessionSnapshot) {
             events.add("active")
         }
 
-        override fun onMessageReceived(session: DeviceSession, message: Message) {
+        override fun onMessageReceived(session: DeviceSessionSnapshot, message: Message) {
             events.add("message:${message::class.simpleName}")
             receivedMessages.add(message)
         }
 
-        override fun onSessionHandshakeFailed(session: DeviceSession, reason: String) {
+        override fun onSessionHandshakeFailed(session: DeviceSessionSnapshot, reason: String) {
             events.add("handshakeFailed")
             lastHandshakeFailReason = reason
         }
 
-        override fun onSessionDisconnecting(session: DeviceSession, softDisconnect: SoftDisconnect?) {
+        override fun onSessionDisconnecting(session: DeviceSessionSnapshot, softDisconnect: SoftDisconnect?) {
             events.add("disconnecting")
             lastDisconnectMessage = softDisconnect
         }
 
-        override fun onSessionClosed(session: DeviceSession) {
+        override fun onSessionClosed(session: DeviceSessionSnapshot) {
             events.add("closed")
         }
 
-        override fun onSessionError(session: DeviceSession, error: Throwable) {
+        override fun onSessionError(session: DeviceSessionSnapshot, error: Throwable) {
             events.add("error")
             lastError = error
         }
@@ -375,11 +375,11 @@ class EpServerTest {
         val throwingListener = object : ServerListener {
             var activeCallCount = 0
 
-            override fun onSessionCreated(session: DeviceSession) {
+            override fun onSessionCreated(session: DeviceSessionSnapshot) {
                 throw RuntimeException("boom on create")
             }
 
-            override fun onSessionActive(session: DeviceSession) {
+            override fun onSessionActive(session: DeviceSessionSnapshot) {
                 activeCallCount++
                 throw RuntimeException("boom on active")
             }

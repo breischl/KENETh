@@ -67,19 +67,19 @@ class EnergyTransferTest {
     private class RecordingNodeListener : NodeListener {
         val events = mutableListOf<String>()
 
-        override fun onPeerConnected(peer: Peer) {
+        override fun onPeerConnected(peer: PeerSnapshot) {
             events.add("connected:${peer.peerId}")
         }
 
-        override fun onPeerDisconnected(peer: Peer) {
+        override fun onPeerDisconnected(peer: PeerSnapshot) {
             events.add("disconnected:${peer.peerId}")
         }
 
-        override fun onTransferStarted(transfer: EnergyTransfer) {
+        override fun onTransferStarted(transfer: EnergyTransferSnapshot) {
             events.add("transfer-started:${transfer.peerId}")
         }
 
-        override fun onTransferStopped(transfer: EnergyTransfer) {
+        override fun onTransferStopped(transfer: EnergyTransferSnapshot) {
             events.add("transfer-stopped:${transfer.peerId}")
         }
 

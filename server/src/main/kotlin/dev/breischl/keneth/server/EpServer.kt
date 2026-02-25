@@ -76,8 +76,9 @@ class EpServer(
             id = UUID.randomUUID().toString(),
             transport = transport,
         )
+        wireAfterSend(session)
         _sessions[session.id] = session
-        listener.safeNotify { onSessionCreated(session) }
+        listener.safeNotify { onSessionCreated(session.snapshot()) }
         scope.launch { runSession(session) }
         return session
     }
@@ -130,16 +131,24 @@ class EpServer(
                     id = UUID.randomUUID().toString(),
                     transport = transport,
                 )
+                wireAfterSend(session)
                 peer.session = session
                 sessionToPeer[session.id] = peer
                 _sessions[session.id] = session
-                listener.safeNotify { onSessionCreated(session) }
+                listener.safeNotify { onSessionCreated(session.snapshot()) }
                 runSession(session)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 // Connection failed — peer stays DISCONNECTED
             }
+        }
+    }
+
+    /** Wires the [DeviceSession.afterSend] hook to fire [ServerListener.onMessageSent]. */
+    private fun wireAfterSend(session: DeviceSession) {
+        session.afterSend = { message ->
+            listener.safeNotify { onMessageSent(session.snapshot(), message) }
         }
     }
 
@@ -157,7 +166,7 @@ class EpServer(
             } catch (_: Exception) {
                 // Transport may already be broken
             }
-            listener.safeNotify { onSessionDisconnecting(session, null) }
+            listener.safeNotify { onSessionDisconnecting(session.snapshot(), null) }
         }
         closeSession(session)
     }
@@ -184,7 +193,7 @@ class EpServer(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            listener.safeNotify { onSessionError(session, e) }
+            listener.safeNotify { onSessionError(session.snapshot(), e) }
         } finally {
             closeSession(session)
         }
@@ -194,7 +203,7 @@ class EpServer(
         if (message !is SessionParameters) {
             listener.safeNotify {
                 onSessionHandshakeFailed(
-                    session,
+                    session.snapshot(),
                     "Expected SessionParameters, got ${message::class.simpleName}"
                 )
             }
@@ -204,17 +213,17 @@ class EpServer(
         session.sessionParameters = message
         session.state = SessionState.ACTIVE
         session.send(serverParameters)
-        listener.safeNotify { onSessionActive(session) }
+        listener.safeNotify { onSessionActive(session.snapshot()) }
 
         // Link inbound sessions to configured peers by identity
         val peer = linkInboundPeer(session, message.identity)
         if (peer != null) {
-            listener.safeNotify { onPeerConnected(peer) }
+            listener.safeNotify { onPeerConnected(peer.snapshot()) }
         } else {
             // Check if this session was already linked by connectOutbound
             val outboundPeer = sessionToPeer[session.id]
             if (outboundPeer != null) {
-                listener.safeNotify { onPeerConnected(outboundPeer) }
+                listener.safeNotify { onPeerConnected(outboundPeer.snapshot()) }
             }
         }
     }
@@ -242,24 +251,25 @@ class EpServer(
 
             is SoftDisconnect -> {
                 session.state = SessionState.DISCONNECTING
-                listener.safeNotify { onSessionDisconnecting(session, message) }
+                listener.safeNotify { onSessionDisconnecting(session.snapshot(), message) }
             }
 
             else -> { /* unknown message types — tracked via listener */
             }
         }
-        listener.safeNotify { onMessageReceived(session, message) }
+        listener.safeNotify { onMessageReceived(session.snapshot(), message) }
     }
 
     private fun closeSession(session: DeviceSession) {
         if (session.state == SessionState.CLOSED) return
+        val peer = sessionToPeer.remove(session.id)
+        val peerSnap = peer?.snapshot() // capture while session still linked
         session.close()
         _sessions.remove(session.id)
-        val peer = sessionToPeer.remove(session.id)
         if (peer != null) {
             peer.session = null
-            listener.safeNotify { onPeerDisconnected(peer) }
+            listener.safeNotify { onPeerDisconnected(peerSnap!!) }
         }
-        listener.safeNotify { onSessionClosed(session) }
+        listener.safeNotify { onSessionClosed(session.snapshot()) }
     }
 }
