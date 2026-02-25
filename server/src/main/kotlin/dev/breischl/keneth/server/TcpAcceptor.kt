@@ -14,6 +14,9 @@ import java.net.SocketException
  * Each accepted socket is wrapped in [RawTcpServerTransport] → [MessageTransport]
  * and passed to [EpServer.accept] to start the EP handshake.
  *
+ * The server socket is not created until [start] is called, so constructing a
+ * `TcpAcceptor` does not bind the port.
+ *
  * Example:
  * ```kotlin
  * val server = EpServer(serverParams)
@@ -33,26 +36,29 @@ class TcpAcceptor(
     private val transportListener: TransportListener? = null,
 ) : Closeable {
 
-    private val serverSocket = ServerSocket(port)
+    private var serverSocket: ServerSocket? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var acceptJob: Job? = null
 
-    /** The actual port this acceptor is listening on (useful when port 0 was requested). */
-    val localPort: Int get() = serverSocket.localPort
+    /** The actual port this acceptor is listening on, or null if not started. */
+    val localPort: Int? get() = serverSocket?.localPort
 
     /** Whether this acceptor has been closed. */
-    val isClosed: Boolean get() = serverSocket.isClosed
+    val isClosed: Boolean get() = serverSocket?.isClosed ?: (acceptJob != null)
 
     /**
-     * Starts the accept loop. Each accepted connection is wrapped and passed to the server.
+     * Starts the accept loop. Binds the server socket and begins accepting connections.
+     * Each accepted connection is wrapped and passed to the server.
      */
     fun start() {
         check(acceptJob == null) { "Already started" }
+        val socket = ServerSocket(port)
+        serverSocket = socket
         acceptJob = scope.launch {
             try {
                 while (isActive) {
-                    val socket = serverSocket.accept()
-                    val rawTransport = RawTcpServerTransport(socket, transportListener)
+                    val clientSocket = socket.accept()
+                    val rawTransport = RawTcpServerTransport(clientSocket, transportListener)
                     val transport = MessageTransport(rawTransport)
                     server.accept(transport)
                 }
@@ -63,7 +69,8 @@ class TcpAcceptor(
     }
 
     override fun close() {
-        runCatching { serverSocket.close() }
+        runCatching { serverSocket?.close() }
+        serverSocket = null
         scope.cancel()
     }
 }

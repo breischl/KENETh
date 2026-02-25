@@ -50,6 +50,8 @@ class EpNode(
         coroutineContext = coroutineContext,
     )
 
+    // Separate scope from EpServer — close() cancels this first so transfer
+    // coroutines complete their cleanup while the server is still alive.
     private val scope = CoroutineScope(SupervisorJob() + coroutineContext)
     private var acceptor: TcpAcceptor? = null
     private val transfers = ConcurrentHashMap<String, EnergyTransfer>()
@@ -69,11 +71,12 @@ class EpNode(
     }
 
     override fun close() {
-        transfers.keys.toList().forEach { stopTransfer(it) }
+        // Cancel our scope first so transfer coroutines run their finally blocks
+        // (including onTransferStopped callbacks) while the server is still alive.
+        scope.cancel()
         acceptor?.close()
         acceptor = null
         server.close()
-        scope.cancel()
     }
 
     /**
@@ -115,8 +118,12 @@ class EpNode(
      * The transfer can be updated with [updateTransfer] or stopped with [stopTransfer].
      *
      * Returns a [StartTransferResult] indicating success or the reason for failure.
-     * This avoids race conditions where a peer could disconnect between checking
-     * its state and starting the transfer.
+     *
+     * Note: a [StartTransferResult.Success] means the transfer was launched, but the
+     * peer could disconnect between the state check and the first tick. In that case
+     * the transfer stops immediately and [NodeListener.onTransferStopped] fires.
+     * Callers should handle this via the listener rather than assuming Success
+     * guarantees sustained publishing.
      *
      * @param peerId The peer to send parameters to.
      * @param params The parameters to publish.
@@ -211,7 +218,7 @@ class EpNode(
 
         override fun onMessageReceived(session: DeviceSession, message: Message) {
             if (message is SupplyParameters || message is DemandParameters || message is StorageParameters) {
-                val peer = server.peers.values.firstOrNull { it.session === session }
+                val peer = server.peerForSession(session.id)
                 if (peer != null) {
                     listener.safeNotify { onPeerParametersUpdated(peer, message) }
                 }

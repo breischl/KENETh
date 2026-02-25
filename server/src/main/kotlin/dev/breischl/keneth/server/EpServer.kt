@@ -58,6 +58,9 @@ class EpServer(
     /** Read-only snapshot of all configured peers. */
     val peers: Map<String, Peer> get() = _peers.toMap()
 
+    /** Returns the peer linked to the given session, or null if none. */
+    internal fun peerForSession(sessionId: String): Peer? = sessionToPeer[sessionId]
+
     /**
      * Accept a new connection.
      *
@@ -110,8 +113,7 @@ class EpServer(
         val peer = _peers.remove(peerId) ?: return
         val session = peer.session
         if (session != null) {
-            sessionToPeer.remove(session.id)
-            peer.session = null
+            // closeSession handles unlinking from sessionToPeer and firing onPeerDisconnected
             closeSession(session)
         }
     }
@@ -122,9 +124,17 @@ class EpServer(
             try {
                 val rawTransport = RawTcpClientTransport(host, peer.config.port, transportListener)
                 val transport = MessageTransport(rawTransport)
-                val session = accept(transport)
+                // Create the session and link the peer BEFORE launching runSession,
+                // so the handshake code can find the peer even with eager dispatchers.
+                val session = DeviceSession(
+                    id = UUID.randomUUID().toString(),
+                    transport = transport,
+                )
                 peer.session = session
                 sessionToPeer[session.id] = peer
+                _sessions[session.id] = session
+                listener.safeNotify { onSessionCreated(session) }
+                runSession(session)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {

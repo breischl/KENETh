@@ -52,7 +52,7 @@ class TcpAcceptorTest {
         val acceptor = TcpAcceptor(server, 0).tracked()
         acceptor.start()
 
-        connectClient(acceptor.localPort)
+        connectClient(acceptor.localPort!!)
 
         awaitCondition { server.sessions.values.any { it.state == SessionState.ACTIVE } }
 
@@ -71,8 +71,8 @@ class TcpAcceptorTest {
         val device1 = SessionParameters(identity = "device-1", type = "charger")
         val device2 = SessionParameters(identity = "device-2", type = "charger")
 
-        connectClient(acceptor.localPort, device1)
-        connectClient(acceptor.localPort, device2)
+        connectClient(acceptor.localPort!!, device1)
+        connectClient(acceptor.localPort!!, device2)
 
         awaitCondition {
             server.sessions.values.count { it.state == SessionState.ACTIVE } >= 2
@@ -89,7 +89,7 @@ class TcpAcceptorTest {
             val server = EpServer(serverParams).tracked()
             val acceptor = TcpAcceptor(server, 0).tracked()
             acceptor.start()
-            val port = acceptor.localPort
+            val port = acceptor.localPort!!
 
             // Verify it's working
             connectClient(port)
@@ -119,7 +119,7 @@ class TcpAcceptorTest {
         val acceptor = TcpAcceptor(server, 0, listener).tracked()
         acceptor.start()
 
-        connectClient(acceptor.localPort)
+        connectClient(acceptor.localPort!!)
 
         awaitCondition { synchronized(connectedHosts) { connectedHosts.isNotEmpty() } }
 

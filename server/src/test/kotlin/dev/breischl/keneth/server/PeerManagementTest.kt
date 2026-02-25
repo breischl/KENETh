@@ -290,6 +290,7 @@ class PeerManagementTest {
         assertTrue(server.peers.isEmpty())
         assertEquals(SessionState.CLOSED, session.state)
         assertTrue(fake.closed)
+        assertContains(listener.events, "peerDisconnected:device-1")
         server.close()
     }
 

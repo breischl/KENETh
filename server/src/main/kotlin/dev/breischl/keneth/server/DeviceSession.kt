@@ -43,8 +43,13 @@ class DeviceSession internal constructor(
         transport.send(message)
     }
 
-    /** Close the underlying transport and mark this session as [SessionState.CLOSED]. */
-    fun close() {
+    /**
+     * Close the underlying transport and mark this session as [SessionState.CLOSED].
+     *
+     * Internal — external callers should use [EpServer.disconnect] to ensure
+     * proper cleanup (peer unlinking, listener callbacks).
+     */
+    internal fun close() {
         state = SessionState.CLOSED
         transport.close()
     }
