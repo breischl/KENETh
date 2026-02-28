@@ -138,6 +138,18 @@ Exceptions thrown by listener methods are silently swallowed.
 
 See [EXAMPLE_OUTPUT.txt](EXAMPLE_OUTPUT.txt) for sample output from `PrintTransportListener`.
 
+## Platform support
+
+`keneth-transport` is a Kotlin Multiplatform library targeting JVM, JS (IR), and linuxArm64.
+
+The core interfaces (`FrameTransport`, `MessageTransport`, `TransportListener`) are in `commonMain` and work
+on all platforms. The socket-based implementations (TCP and TLS transports) are in `jvmMain` and require a JVM.
+
+| Source set   | Contents                                                        |
+|--------------|-----------------------------------------------------------------|
+| `commonMain` | `FrameTransport`, `MessageTransport`, `TransportListener`       |
+| `jvmMain`    | `SocketTransport`, TCP/TLS transports, `PrintTransportListener` |
+
 ## Parsing modes
 
 `MessageTransport` accepts a `MessageParser` to control how received messages are decoded:
