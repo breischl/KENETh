@@ -24,6 +24,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./gradlew :core:jvmTest --tests "dev.breischl.keneth.core.MyTestClass"
 ```
 
+## Dev Setup
+
+See [DEV_SETUP.md](DEV_SETUP.md) for prerequisites (JDK, Chrome for browser tests).
+
 ## Architecture
 
 This is a Kotlin Multiplatform multi-module Gradle project with centralized build configuration.
@@ -45,13 +49,13 @@ All modules target three platforms via the `kotlin-multiplatform` convention plu
 
 Platform-specific source sets follow the standard KMP layout:
 
-| Source set   | Used for                                                     |
-|--------------|--------------------------------------------------------------|
-| `commonMain` | Platform-agnostic code (most logic lives here)               |
-| `jvmMain`    | JVM-specific: TCP/TLS sockets, `InputStream`-based frame I/O |
-| `jsMain`     | JS-specific stubs and platform actuals                       |
-| `nativeMain` | Native (linuxArm64) stubs and platform actuals               |
-| `jvmTest`    | JVM tests (all current tests live here)                      |
+| Source set   | Used for                                       |
+|--------------|------------------------------------------------|
+| `commonMain` | Platform-agnostic code (most logic lives here) |
+| `jvmMain`    | JVM-specific: TCP/TLS sockets                  |
+| `jsMain`     | JS-specific stubs and platform actuals         |
+| `nativeMain` | Native (linuxArm64) stubs and platform actuals |
+| `jvmTest`    | JVM tests (all current tests live here)        |
 
 ### Build Configuration
 

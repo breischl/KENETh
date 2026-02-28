@@ -34,6 +34,10 @@ EP server with session management, TCP accept loop, and peer configuration. Mana
 enforces the EP handshake protocol, and tracks per-device state. Supports named peers with inbound matching
 by identity and outbound connection initiation. Server logic is cross-platform; TCP accept loop is JVM-only.
 
+### Dev Setup
+
+See [DEV_SETUP.md](DEV_SETUP.md) for prerequisites (JDK, Chrome for browser tests).
+
 ### Build
 This project uses [Gradle](https://gradle.org/).
 
