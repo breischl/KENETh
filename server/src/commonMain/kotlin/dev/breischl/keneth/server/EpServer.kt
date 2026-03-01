@@ -5,6 +5,7 @@ package dev.breischl.keneth.server
 import dev.breischl.keneth.core.messages.*
 import dev.breischl.keneth.transport.MessageTransport
 import dev.breischl.keneth.transport.TransportListener
+import dev.breischl.keneth.transport.safeNotify
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext

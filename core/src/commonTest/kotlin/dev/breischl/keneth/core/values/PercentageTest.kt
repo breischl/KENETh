@@ -7,6 +7,7 @@ import net.orandja.obor.codec.Cbor
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -28,6 +29,24 @@ class PercentageTest {
             val bytes = cbor.encodeToByteArray(PercentageSerializer, original)
             val decoded = cbor.decodeFromByteArray(PercentageSerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Percentage deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x14)
+        val wrongKeyBytes = "A11918991902E8".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(PercentageSerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Percentage deserialization fails with string value instead of number`() {
+        // Map with correct key (0x14) but string value instead of number
+        val stringValueBytes = "A11463666F6F".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(PercentageSerializer, stringValueBytes)
         }
     }
 

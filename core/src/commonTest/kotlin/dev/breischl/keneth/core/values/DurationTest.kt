@@ -6,6 +6,7 @@ import io.kotest.property.checkAll
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 class DurationTest {
@@ -26,6 +27,24 @@ class DurationTest {
             val bytes = cbor.encodeToByteArray(DurationSerializer, original)
             val decoded = cbor.decodeFromByteArray(DurationSerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Duration deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x06), integer value
+        val wrongKeyBytes = "A11918991903E8".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(DurationSerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Duration deserialization fails with string value instead of integer`() {
+        // Map with correct key (0x06) but string value instead of integer
+        val stringValueBytes = "A10663666F6F".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(DurationSerializer, stringValueBytes)
         }
     }
 

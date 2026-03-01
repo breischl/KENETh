@@ -73,16 +73,3 @@ interface TransportListener {
     /** Called after a message is received and parsed. */
     fun onMessageReceived(received: ReceivedMessage, payloadCbor: CborSnapshot?) {}
 }
-
-/**
- * Safely invokes a [TransportListener] callback, swallowing any exception.
- * When the receiver is null, this compiles to a no-op.
- */
-internal inline fun TransportListener?.safeNotify(block: TransportListener.() -> Unit) {
-    if (this != null) {
-        try {
-            block()
-        } catch (_: Throwable) {
-        }
-    }
-}

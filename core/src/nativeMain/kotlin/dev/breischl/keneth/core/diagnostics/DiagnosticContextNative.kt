@@ -1,5 +1,7 @@
 package dev.breischl.keneth.core.diagnostics
 
+import kotlin.native.concurrent.ThreadLocal
+
 // @ThreadLocal gives each native thread its own instance of this variable,
 // matching the ThreadLocal<> behaviour on JVM.
 @ThreadLocal

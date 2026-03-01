@@ -6,6 +6,7 @@ import io.kotest.property.checkAll
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 class FlagTest {
@@ -31,6 +32,24 @@ class FlagTest {
             val bytes = cbor.encodeToByteArray(FlagSerializer, original)
             val decoded = cbor.decodeFromByteArray(FlagSerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Flag deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x01), boolean value F4 (false)
+        val wrongKeyBytes = "A1191899F4".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(FlagSerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Flag deserialization fails with integer value instead of boolean`() {
+        // Map with correct key (0x01) but integer value instead of boolean
+        val intValueBytes = "A10101".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(FlagSerializer, intValueBytes)
         }
     }
 

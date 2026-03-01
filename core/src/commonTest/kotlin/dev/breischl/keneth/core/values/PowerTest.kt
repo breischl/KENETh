@@ -6,6 +6,7 @@ import io.kotest.property.checkAll
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 class PowerTest {
@@ -26,6 +27,24 @@ class PowerTest {
             val bytes = cbor.encodeToByteArray(PowerSerializer, original)
             val decoded = cbor.decodeFromByteArray(PowerSerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Power deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x12)
+        val wrongKeyBytes = "A11918991902E8".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(PowerSerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Power deserialization fails with string value instead of number`() {
+        // Map with correct key (0x12) but string value instead of number
+        val stringValueBytes = "A11263666F6F".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(PowerSerializer, stringValueBytes)
         }
     }
 

@@ -6,6 +6,7 @@ import io.kotest.property.checkAll
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 class EnergyTest {
@@ -26,6 +27,24 @@ class EnergyTest {
             val bytes = cbor.encodeToByteArray(EnergySerializer, original)
             val decoded = cbor.decodeFromByteArray(EnergySerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Energy deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x13)
+        val wrongKeyBytes = "A11918991902E8".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(EnergySerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Energy deserialization fails with string value instead of number`() {
+        // Map with correct key (0x13) but string value instead of number
+        val stringValueBytes = "A11363666F6F".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(EnergySerializer, stringValueBytes)
         }
     }
 

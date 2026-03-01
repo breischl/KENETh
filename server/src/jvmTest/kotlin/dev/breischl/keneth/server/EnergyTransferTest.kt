@@ -7,9 +7,6 @@ import dev.breischl.keneth.core.values.*
 import dev.breischl.keneth.transport.FrameTransport
 import dev.breischl.keneth.transport.MessageTransport
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
@@ -24,28 +21,6 @@ class EnergyTransferTest {
 
     private val serverIdentity = SessionParameters(identity = "test-node", type = "router")
     private val deviceIdentity = SessionParameters(identity = "test-device", type = "charger")
-
-    private class ChannelFakeFrameTransport(
-        private val channel: Channel<ParseResult<Frame>> = Channel(Channel.UNLIMITED)
-    ) : FrameTransport {
-        val sentFrames = mutableListOf<Frame>()
-        var closed = false
-
-        override suspend fun send(frame: Frame) {
-            sentFrames.add(frame)
-        }
-
-        override fun receive(): Flow<ParseResult<Frame>> = channel.consumeAsFlow()
-
-        override fun close() {
-            closed = true
-            channel.close()
-        }
-
-        suspend fun enqueue(frame: ParseResult<Frame>) {
-            channel.send(frame)
-        }
-    }
 
     private fun encodeMessage(message: Message): ByteArray {
         @Suppress("UNCHECKED_CAST")

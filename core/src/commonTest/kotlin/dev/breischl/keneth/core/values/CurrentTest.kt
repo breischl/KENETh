@@ -7,6 +7,7 @@ import net.orandja.obor.codec.Cbor
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -28,6 +29,24 @@ class CurrentTest {
             val bytes = cbor.encodeToByteArray(CurrentSerializer, original)
             val decoded = cbor.decodeFromByteArray(CurrentSerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Current deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x11)
+        val wrongKeyBytes = "A11918991902E8".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(CurrentSerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Current deserialization fails with string value instead of number`() {
+        // Map with correct key (0x11) but string value instead of number
+        val stringValueBytes = "A11163666F6F".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(CurrentSerializer, stringValueBytes)
         }
     }
 

@@ -49,16 +49,3 @@ interface ServerListener {
     /** A message was sent to a device on an active session. */
     fun onMessageSent(session: DeviceSessionSnapshot, message: Message) {}
 }
-
-/**
- * Safely invokes a [ServerListener] callback, swallowing any exception.
- * When the receiver is null, this compiles to a no-op.
- */
-internal inline fun ServerListener?.safeNotify(block: ServerListener.() -> Unit) {
-    if (this != null) {
-        try {
-            block()
-        } catch (_: Throwable) {
-        }
-    }
-}

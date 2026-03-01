@@ -11,9 +11,6 @@ import dev.breischl.keneth.transport.FrameTransport
 import dev.breischl.keneth.transport.MessageTransport
 import dev.breischl.keneth.transport.tcp.RawTcpClientTransport
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.KSerializer
@@ -39,30 +36,6 @@ class PeerManagementTest {
     @AfterTest
     fun tearDown() {
         cleanupList.reversed().forEach { runCatching { it.close() } }
-    }
-
-    // -- Fake transport infrastructure (same pattern as EpServerTest) --
-
-    private class ChannelFakeFrameTransport(
-        private val channel: Channel<ParseResult<Frame>> = Channel(Channel.UNLIMITED)
-    ) : FrameTransport {
-        val sentFrames = mutableListOf<Frame>()
-        var closed = false
-
-        override suspend fun send(frame: Frame) {
-            sentFrames.add(frame)
-        }
-
-        override fun receive(): Flow<ParseResult<Frame>> = channel.consumeAsFlow()
-
-        override fun close() {
-            closed = true
-            channel.close()
-        }
-
-        suspend fun enqueue(frame: ParseResult<Frame>) {
-            channel.send(frame)
-        }
     }
 
     private fun encodeMessage(message: Message): ByteArray {

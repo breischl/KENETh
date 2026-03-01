@@ -6,6 +6,7 @@ import io.kotest.property.checkAll
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 class ResistanceTest {
@@ -26,6 +27,24 @@ class ResistanceTest {
             val bytes = cbor.encodeToByteArray(ResistanceSerializer, original)
             val decoded = cbor.decodeFromByteArray(ResistanceSerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Resistance deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x15)
+        val wrongKeyBytes = "A11918991902E8".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(ResistanceSerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Resistance deserialization fails with string value instead of number`() {
+        // Map with correct key (0x15) but string value instead of number
+        val stringValueBytes = "A11563666F6F".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(ResistanceSerializer, stringValueBytes)
         }
     }
 

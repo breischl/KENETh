@@ -44,16 +44,3 @@ interface NodeListener {
     /** An unrecoverable error occurred (e.g., session processing failure). */
     fun onError(error: Throwable) {}
 }
-
-/**
- * Safely invokes a [NodeListener] callback, swallowing any exception.
- * When the receiver is null, this compiles to a no-op.
- */
-internal inline fun NodeListener?.safeNotify(block: NodeListener.() -> Unit) {
-    if (this != null) {
-        try {
-            block()
-        } catch (_: Throwable) {
-        }
-    }
-}

@@ -39,12 +39,13 @@ class TcpAcceptor(
     private var serverSocket: ServerSocket? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var acceptJob: Job? = null
+    private var _closed = false
 
     /** The actual port this acceptor is listening on, or null if not started. */
     val localPort: Int? get() = serverSocket?.localPort
 
     /** Whether this acceptor has been closed. */
-    val isClosed: Boolean get() = serverSocket?.isClosed ?: (acceptJob != null)
+    val isClosed: Boolean get() = serverSocket?.isClosed ?: _closed
 
     /**
      * Starts the accept loop. Binds the server socket and begins accepting connections.
@@ -69,6 +70,7 @@ class TcpAcceptor(
     }
 
     override fun close() {
+        _closed = true
         runCatching { serverSocket?.close() }
         serverSocket = null
         scope.cancel()

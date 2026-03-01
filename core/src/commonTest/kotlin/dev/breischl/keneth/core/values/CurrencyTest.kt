@@ -6,6 +6,7 @@ import io.kotest.property.checkAll
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
 class CurrencyTest {
@@ -26,6 +27,24 @@ class CurrencyTest {
             val bytes = cbor.encodeToByteArray(CurrencySerializer, original)
             val decoded = cbor.decodeFromByteArray(CurrencySerializer, bytes)
             assertEquals(original, decoded)
+        }
+    }
+
+    @Test
+    fun `Currency deserialization fails with missing type ID key`() {
+        // Map with wrong key (0x1899 instead of 0x05), string value "foo"
+        val wrongKeyBytes = "A119189963666F6F".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(CurrencySerializer, wrongKeyBytes)
+        }
+    }
+
+    @Test
+    fun `Currency deserialization fails with integer value instead of string`() {
+        // Map with correct key (0x05) but integer value instead of string
+        val intValueBytes = "A10501".hexToByteArray()
+        assertFailsWith<IllegalStateException> {
+            cbor.decodeFromByteArray(CurrencySerializer, intValueBytes)
         }
     }
 
