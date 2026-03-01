@@ -5,7 +5,6 @@ import dev.breischl.keneth.core.diagnostics.DiagnosticContext
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.*
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import net.orandja.obor.data.CborMap
 import net.orandja.obor.data.CborObject
@@ -13,6 +12,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Instant
+import kotlinx.coroutines.test.runTest
 
 class PriceForecastTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -38,7 +38,7 @@ class PriceForecastTest {
     }
 
     @Test
-    fun `PriceEntry round-trip serialization - property`() = runBlocking<Unit> {
+    fun `PriceEntry round-trip serialization - property`() = runTest {
         checkAll(arbPriceForecastEntry) { original ->
             val bytes = cbor.encodeToByteArray(PriceForecastEntrySerializer, original)
             val decoded = cbor.decodeFromByteArray(PriceForecastEntrySerializer, bytes)
@@ -47,7 +47,7 @@ class PriceForecastTest {
     }
 
     @Test
-    fun `PriceForecast round-trip serialization - property`() = runBlocking<Unit> {
+    fun `PriceForecast round-trip serialization - property`() = runTest {
         val arbPriceForecast = arbitrary {
             val size = Arb.int(0..10).bind()
             val entries = List(size) { arbPriceForecastEntry.bind() }

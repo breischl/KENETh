@@ -3,11 +3,11 @@ package dev.breischl.keneth.core.values
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.double
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlinx.coroutines.test.runTest
 
 class VoltageTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -21,7 +21,7 @@ class VoltageTest {
     }
 
     @Test
-    fun `Voltage round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Voltage round-trip serialization - property`() = runTest {
         checkAll(Arb.double()) { value ->
             val original = Voltage(value)
             val bytes = cbor.encodeToByteArray(VoltageSerializer, original)

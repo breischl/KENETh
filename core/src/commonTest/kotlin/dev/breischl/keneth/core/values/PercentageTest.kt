@@ -3,12 +3,12 @@ package dev.breischl.keneth.core.values
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.double
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class PercentageTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -22,7 +22,7 @@ class PercentageTest {
     }
 
     @Test
-    fun `Percentage round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Percentage round-trip serialization - property`() = runTest {
         checkAll(Arb.double()) { value ->
             val original = Percentage(value)
             val bytes = cbor.encodeToByteArray(PercentageSerializer, original)

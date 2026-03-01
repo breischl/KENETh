@@ -6,10 +6,10 @@ import io.kotest.property.arbitrary.boolean
 import io.kotest.property.arbitrary.double
 import io.kotest.property.arbitrary.enum
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class IsolationStateTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -39,7 +39,7 @@ class IsolationStateTest {
     }
 
     @Test
-    fun `IsolationState round-trip serialization - property`() = runBlocking<Unit> {
+    fun `IsolationState round-trip serialization - property`() = runTest {
         val arbIsolationState = arbitrary {
             val state = Arb.enum<IsolationStatus>().bind()
             val hasPositive = Arb.boolean().bind()

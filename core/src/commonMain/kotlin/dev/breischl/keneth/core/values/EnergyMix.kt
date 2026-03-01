@@ -31,7 +31,7 @@ data class EnergyMix(
 ) {
     companion object {
         /** CBOR type identifier for EnergyMix values in the EnergyNet Protocol. */
-        const val TYPE_ID: Int = 0x41
+        const val TYPE_ID: Int = TypeIds.ENERGY_MIX
     }
 }
 

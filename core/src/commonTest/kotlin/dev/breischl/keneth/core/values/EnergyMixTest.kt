@@ -7,11 +7,11 @@ import io.kotest.property.arbitrary.arbitrary
 import io.kotest.property.arbitrary.double
 import io.kotest.property.arbitrary.int
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import net.orandja.obor.data.CborObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class EnergyMixTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -30,7 +30,7 @@ class EnergyMixTest {
     }
 
     @Test
-    fun `EnergyMix round-trip serialization - property`() = runBlocking<Unit> {
+    fun `EnergyMix round-trip serialization - property`() = runTest {
         val arbEnergyMix = arbitrary {
             val size = Arb.int(0..EnergySource.entries.size).bind()
             val sources = EnergySource.entries.shuffled(it.random).take(size)

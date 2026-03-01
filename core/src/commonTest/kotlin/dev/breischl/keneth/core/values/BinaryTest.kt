@@ -5,10 +5,10 @@ import io.kotest.property.arbitrary.byte
 import io.kotest.property.arbitrary.byteArray
 import io.kotest.property.arbitrary.int
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlinx.coroutines.test.runTest
 
 class BinaryTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -22,7 +22,7 @@ class BinaryTest {
     }
 
     @Test
-    fun `Binary round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Binary round-trip serialization - property`() = runTest {
         checkAll(Arb.byteArray(Arb.int(0..1024), Arb.byte())) { value ->
             val original = Binary(value)
             val bytes = cbor.encodeToByteArray(BinarySerializer, original)

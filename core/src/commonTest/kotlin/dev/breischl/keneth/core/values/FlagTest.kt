@@ -3,10 +3,10 @@ package dev.breischl.keneth.core.values
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.boolean
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class FlagTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -25,7 +25,7 @@ class FlagTest {
     }
 
     @Test
-    fun `Flag round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Flag round-trip serialization - property`() = runTest {
         checkAll(Arb.boolean()) { value ->
             val original = Flag(value)
             val bytes = cbor.encodeToByteArray(FlagSerializer, original)

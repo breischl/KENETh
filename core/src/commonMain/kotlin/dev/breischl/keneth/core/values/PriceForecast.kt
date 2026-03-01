@@ -27,7 +27,7 @@ data class PriceForecast(
 ) {
     companion object {
         /** CBOR type identifier for PriceForecast values in the EnergyNet Protocol. */
-        const val TYPE_ID: Int = 0x30
+        const val TYPE_ID: Int = TypeIds.PRICE_FORECAST
     }
 }
 

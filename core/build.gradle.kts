@@ -14,6 +14,7 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotestProperty)
+            implementation(libs.kotlinxCoroutinesTest)
         }
     }
 }

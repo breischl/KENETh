@@ -4,10 +4,10 @@ import io.kotest.property.Arb
 import io.kotest.property.arbitrary.double
 import io.kotest.property.arbitrary.map
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class BoundsTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -29,7 +29,7 @@ class BoundsTest {
     }
 
     @Test
-    fun `Bounds Voltage round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Bounds Voltage round-trip serialization - property`() = runTest {
         val arbVoltage = Arb.double().map { Voltage(it) }
         checkAll(arbVoltage, arbVoltage) { min, max ->
             val original = Bounds(min, max)
@@ -40,7 +40,7 @@ class BoundsTest {
     }
 
     @Test
-    fun `Bounds Current round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Bounds Current round-trip serialization - property`() = runTest {
         val arbCurrent = Arb.double().map { Current(it) }
         checkAll(arbCurrent, arbCurrent) { min, max ->
             val original = Bounds(min, max)

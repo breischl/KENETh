@@ -31,7 +31,7 @@ data class SourceMix(
 ) {
     companion object {
         /** CBOR type identifier for SourceMix values in the EnergyNet Protocol. */
-        const val TYPE_ID: Int = 0x40
+        const val TYPE_ID: Int = TypeIds.SOURCE_MIX
     }
 }
 

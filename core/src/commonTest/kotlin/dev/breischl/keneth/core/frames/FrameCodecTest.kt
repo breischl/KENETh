@@ -3,7 +3,6 @@ package dev.breischl.keneth.core.frames
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.*
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import net.orandja.obor.data.CborArray
 import net.orandja.obor.data.CborMap
@@ -13,6 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class FrameCodecTest {
 
@@ -51,7 +51,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `Frame round-trip encode-decode - property`() = runBlocking<Unit> {
+    fun `Frame round-trip encode-decode - property`() = runTest {
         val arbFrame = arbitrary {
             val messageTypeId = Arb.uInt().bind()
             val payload = Arb.byteArray(Arb.int(0..1024), Arb.byte()).bind()
@@ -67,7 +67,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `Frame round-trip with headers - property`() = runBlocking<Unit> {
+    fun `Frame round-trip with headers - property`() = runTest {
         val arbFrame = arbitrary {
             val numHeaders = Arb.int(0..5).bind()
             val headers = (0 until numHeaders).associate {
@@ -256,7 +256,7 @@ class FrameCodecTest {
     // -- Property-based tests: robustness --
 
     @Test
-    fun `arbitrary bytes never crash decode - property`() = runBlocking<Unit> {
+    fun `arbitrary bytes never crash decode - property`() = runTest {
         checkAll(Arb.byteArray(Arb.int(0..512), Arb.byte())) { bytes ->
             // Should never throw, always returns a ParseResult
             val result = FrameCodec.decode(bytes)
@@ -268,7 +268,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `encoding is deterministic - property`() = runBlocking<Unit> {
+    fun `encoding is deterministic - property`() = runTest {
         val arbFrame = arbitrary {
             val messageTypeId = Arb.uInt().bind()
             val payload = Arb.byteArray(Arb.int(0..256), Arb.byte()).bind()
@@ -282,7 +282,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `encoded frames always start with magic bytes - property`() = runBlocking<Unit> {
+    fun `encoded frames always start with magic bytes - property`() = runTest {
         val arbFrame = arbitrary {
             val messageTypeId = Arb.uInt().bind()
             val payload = Arb.byteArray(Arb.int(0..256), Arb.byte()).bind()
@@ -298,7 +298,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `single-byte corruption never throws - property`() = runBlocking<Unit> {
+    fun `single-byte corruption never throws - property`() = runTest {
         val arbFrame = arbitrary {
             val messageTypeId = Arb.uInt().bind()
             val payload = Arb.byteArray(Arb.int(1..256), Arb.byte()).bind()
@@ -343,7 +343,7 @@ class FrameCodecTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
 
     @Test
-    fun `encoded frame is valid CBOR array of 3 elements - property`() = runBlocking<Unit> {
+    fun `encoded frame is valid CBOR array of 3 elements - property`() = runTest {
         val arbFrame = arbitrary {
             val numHeaders = Arb.int(0..3).bind()
             val headers = (0 until numHeaders).associate {
@@ -361,7 +361,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `empty headers produce CborNull, non-empty produce CborMap - property`() = runBlocking<Unit> {
+    fun `empty headers produce CborNull, non-empty produce CborMap - property`() = runTest {
         val arbFrame = arbitrary {
             val numHeaders = Arb.int(0..5).bind()
             val headers = (0 until numHeaders).associate {
@@ -383,7 +383,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `message type always uses 1A prefix - property`() = runBlocking<Unit> {
+    fun `message type always uses 1A prefix - property`() = runTest {
         val arbFrame = arbitrary {
             val messageTypeId = Arb.uInt().bind()
             Frame(headers = emptyMap(), messageTypeId = messageTypeId, payload = byteArrayOf())
@@ -397,7 +397,7 @@ class FrameCodecTest {
     }
 
     @Test
-    fun `header round-trip with mixed value types - property`() = runBlocking<Unit> {
+    fun `header round-trip with mixed value types - property`() = runTest {
         // Generate headers with various Kotlin types (use Long for integers to match decode behavior)
         val arbHeaderValue: Arb<Any> = Arb.choice(
             Arb.string(0..20).map { it as Any },

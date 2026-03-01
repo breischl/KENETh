@@ -8,7 +8,8 @@ package dev.breischl.keneth.core.diagnostics
  * make the collector available to nested [kotlinx.serialization.KSerializer]
  * implementations without modifying the [kotlinx.serialization.encoding.Decoder] interface.
  *
- * Platform-specific: JVM uses `ThreadLocal`; JS uses a simple `var`.
+ * Platform-specific: JVM uses `ThreadLocal`; JS uses a plain `var` (single-threaded);
+ * Native uses a `@ThreadLocal` top-level property (one instance per OS thread).
  */
 object DiagnosticContext {
     /**

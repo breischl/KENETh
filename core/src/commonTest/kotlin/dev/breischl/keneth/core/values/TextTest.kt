@@ -3,10 +3,10 @@ package dev.breischl.keneth.core.values
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.string
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class TextTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -20,7 +20,7 @@ class TextTest {
     }
 
     @Test
-    fun `Text round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Text round-trip serialization - property`() = runTest {
         checkAll(Arb.string()) { value ->
             val original = Text(value)
             val bytes = cbor.encodeToByteArray(TextSerializer, original)

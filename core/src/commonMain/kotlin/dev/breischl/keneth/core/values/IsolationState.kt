@@ -35,7 +35,7 @@ data class IsolationState(
 ) {
     companion object {
         /** CBOR type identifier for IsolationState values in the EnergyNet Protocol. */
-        const val TYPE_ID: Int = 0x50
+        const val TYPE_ID: Int = TypeIds.ISOLATION_STATE
     }
 }
 

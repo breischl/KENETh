@@ -3,10 +3,10 @@ package dev.breischl.keneth.core.values
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.double
 import io.kotest.property.checkAll
-import kotlinx.coroutines.runBlocking
 import net.orandja.obor.codec.Cbor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.runTest
 
 class PowerTest {
     private val cbor = Cbor { ingnoreUnknownKeys = true }
@@ -20,7 +20,7 @@ class PowerTest {
     }
 
     @Test
-    fun `Power round-trip serialization - property`() = runBlocking<Unit> {
+    fun `Power round-trip serialization - property`() = runTest {
         checkAll(Arb.double()) { value ->
             val original = Power(value)
             val bytes = cbor.encodeToByteArray(PowerSerializer, original)

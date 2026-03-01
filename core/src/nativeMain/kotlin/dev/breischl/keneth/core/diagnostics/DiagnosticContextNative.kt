@@ -1,5 +1,8 @@
 package dev.breischl.keneth.core.diagnostics
 
+// @ThreadLocal gives each native thread its own instance of this variable,
+// matching the ThreadLocal<> behaviour on JVM.
+@ThreadLocal
 private var current: DiagnosticCollector? = null
 
 internal actual fun diagnosticContextGet(): DiagnosticCollector? = current

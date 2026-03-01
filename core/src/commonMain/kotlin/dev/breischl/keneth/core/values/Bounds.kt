@@ -28,7 +28,7 @@ data class Bounds<T>(
 ) {
     companion object {
         /** CBOR type identifier for Bounds values in the EnergyNet Protocol. */
-        const val TYPE_ID: Int = 0x20
+        const val TYPE_ID: Int = TypeIds.BOUNDS
     }
 }
 
