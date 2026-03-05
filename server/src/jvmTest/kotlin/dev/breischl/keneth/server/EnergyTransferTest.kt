@@ -26,6 +26,10 @@ class EnergyTransferTest {
     private val deviceIdentity = SessionParameters(identity = "test-device", type = "charger")
 
     private fun encodeMessage(message: Message): ByteArray {
+        // payloadSerializer is declared as KSerializer<out Message> (covariant) to allow subtype
+        // serializers. The cast to KSerializer<Message> is safe here because the serializer and
+        // the value come from the same concrete object — the serializer only receives values of
+        // exactly that type, so the invariant requirement is never violated at runtime.
         @Suppress("UNCHECKED_CAST")
         return cbor.encodeToByteArray(
             message.payloadSerializer as KSerializer<Message>,

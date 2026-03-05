@@ -16,7 +16,7 @@ tasks.withType<KotlinCompilationTask<*>>().configureEach {
         // Suppress expect/actual classes Beta warning
         freeCompilerArgs.add("-Xexpect-actual-classes")
         optIn.add("kotlinx.serialization.ExperimentalSerializationApi")
-        suppressWarnings = true
+        suppressWarnings = false
     }
 }
 
