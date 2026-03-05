@@ -14,7 +14,7 @@ version = "0.0.1-alpha"
 
 kotlin {
     // Use a specific Java version to make it easier to work in different environments.
-    jvmToolchain(25)
+    jvmToolchain(24)
 }
 
 tasks.withType<Test>().configureEach {

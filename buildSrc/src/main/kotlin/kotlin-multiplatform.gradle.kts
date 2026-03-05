@@ -21,7 +21,7 @@ tasks.withType<KotlinCompilationTask<*>>().configureEach {
 }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(24)
 
     // Note: KGP internally adds JVM artifacts to the deprecated `archives` configuration,
     // causing a "Deprecated Gradle features" warning about Gradle 10 compatibility.
