@@ -95,6 +95,12 @@ Message types: `Ping`, `SessionParameters`, `SoftDisconnect`, `SupplyParameters`
 | `parsing`     | Message registry, lenient/strict parsers                           |
 | `diagnostics` | ParseResult, Diagnostic, and severity types                        |
 
+## Platform support
+
+`keneth-core` is a Kotlin Multiplatform library targeting JVM, JS (IR), and linuxArm64. All public API lives in
+`commonMain`. Platform source sets (`jvmMain`, `jsMain`, `nativeMain`) provide `actual` implementations for
+platform-dependent items (e.g. `DiagnosticContext`, numeric formatting for value types).
+
 ## CBOR serialization
 
 This module uses [OBOR](https://github.com/L-Briand/obor) (`net.orandja.obor:obor`) for CBOR encoding/decoding. OBOR's

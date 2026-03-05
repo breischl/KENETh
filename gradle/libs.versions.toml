@@ -7,6 +7,7 @@ kotlin = "2.3.0"
 kotlinxDatetime = "0.7.1"
 kotlinxSerializationCore = "1.10.0"
 kotlinxCoroutines = "1.10.2"
+kotlinxIo = "0.7.0"
 kotest = "6.1.3"
 detekt = "2.0.0-alpha.2"
 
@@ -17,6 +18,7 @@ kotlinxSerializationCore = { module = "org.jetbrains.kotlinx:kotlinx-serializati
 obor = { module = "net.orandja.obor:obor", version = "2.1.3" }
 kotlinxCoroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinxCoroutinesTest = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+kotlinxIo = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIo" }
 kotestProperty = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 detektGradlePlugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 
@@ -25,4 +27,3 @@ detektGradlePlugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref =
 
 [plugins]
 kotlinPluginSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-detekt = { id = "dev.detekt", version.ref = "detekt" }

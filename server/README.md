@@ -158,6 +158,20 @@ server.accept(transport)
 `ServerListener` provides lower-level session callbacks than `NodeListener`, including
 access to `DeviceSession` objects and handshake failure details.
 
+## Platform support
+
+`keneth-server` is a Kotlin Multiplatform library targeting JVM, JS (IR), and linuxArm64.
+
+Server logic (`EpServer`, `EpNode`, `DeviceSession`, etc.) lives in `commonMain`. Platform-specific entry
+points provide the `EpNode` factory function and the TCP accept loop:
+
+| Source set   | Contents                                                   |
+|--------------|------------------------------------------------------------|
+| `commonMain` | `EpServer`, `EpNode` (expect), session/peer/transfer logic |
+| `jvmMain`    | `EpNodeJvm` (actual), `TcpAcceptor`                        |
+| `jsMain`     | `EpNodeJs` (actual stub)                                   |
+| `nativeMain` | `EpNodeNative` (actual stub)                               |
+
 ## Future Work
 
 - Client/implementor provided callbacks in the `accept()` function, to allow them to selectively block connections

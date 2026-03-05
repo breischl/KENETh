@@ -1,15 +1,23 @@
 plugins {
-    id("buildsrc.convention.kotlin-jvm")
+    id("buildsrc.convention.kotlin-multiplatform")
     alias(libs.plugins.kotlinPluginSerialization)
 }
 
-dependencies {
-    implementation(project(":core"))
-    implementation(project(":transport"))
-    implementation(libs.kotlinxCoroutines)
-    implementation(libs.kotlinxDatetime)
-    testImplementation(kotlin("test"))
-    testImplementation(libs.kotlinxCoroutinesTest)
-    testImplementation(libs.kotlinxSerializationCore)
-    testImplementation(libs.obor)
+kotlin {
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core"))
+            implementation(project(":transport"))
+            implementation(libs.kotlinxCoroutines)
+            implementation(libs.kotlinxDatetime)
+        }
+        val jvmTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.kotlinxCoroutinesTest)
+                implementation(libs.kotlinxSerializationCore)
+                implementation(libs.obor)
+            }
+        }
+    }
 }
