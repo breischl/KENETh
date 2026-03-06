@@ -5,6 +5,7 @@ import dev.breischl.keneth.core.messages.*
 import dev.breischl.keneth.core.parsing.ParseResult
 import dev.breischl.keneth.core.values.*
 import dev.breischl.keneth.transport.FrameTransport
+import dev.breischl.keneth.transport.InMemoryPeerConnector
 import dev.breischl.keneth.transport.MessageTransport
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -84,29 +85,27 @@ class EpNodeTest {
 
     @Test
     fun `start and close lifecycle completes without error`() = runTest {
+        val acceptor = TcpAcceptor(0)
         val node = EpNode(
-            config = nodeConfig.copy(listenPort = 0),
+            config = nodeConfig.copy(acceptor = acceptor),
             coroutineContext = UnconfinedTestDispatcher(),
         )
 
         node.start()
-        assertNotNull(node.localPort)
-        assertTrue(node.localPort!! > 0)
+        assertNotNull(acceptor.localPort)
+        assertTrue(acceptor.localPort!! > 0)
 
         node.close()
-        assertNull(node.localPort)
     }
 
     @Test
-    fun `node without listen port has no acceptor`() = runTest {
+    fun `node without acceptor starts with no-op`() = runTest {
         val node = EpNode(
             config = nodeConfig,
             coroutineContext = UnconfinedTestDispatcher(),
         )
 
-        node.start() // no-op since no listenPort
-        assertNull(node.localPort)
-
+        node.start() // no-op since no acceptor
         node.close()
     }
 
@@ -117,7 +116,7 @@ class EpNodeTest {
         val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
         val node = EpNode(config = nodeConfig, server = server)
 
-        val peerConfig = PeerConfig(peerId = "charger-1", direction = PeerDirection.INBOUND)
+        val peerConfig = PeerConfig.Inbound(peerId = "charger-1")
         node.addPeer(peerConfig)
 
         assertTrue(node.peers.containsKey("charger-1"))
@@ -143,9 +142,8 @@ class EpNodeTest {
         )
 
         node.addPeer(
-            PeerConfig(
+            PeerConfig.Inbound(
                 peerId = "charger-1",
-                direction = PeerDirection.INBOUND,
                 expectedIdentity = "test-device"
             )
         )
@@ -172,9 +170,8 @@ class EpNodeTest {
         )
 
         node.addPeer(
-            PeerConfig(
+            PeerConfig.Inbound(
                 peerId = "charger-1",
-                direction = PeerDirection.INBOUND,
                 expectedIdentity = "test-device"
             )
         )
@@ -201,9 +198,8 @@ class EpNodeTest {
         )
 
         node.addPeer(
-            PeerConfig(
+            PeerConfig.Inbound(
                 peerId = "charger-1",
-                direction = PeerDirection.INBOUND,
                 expectedIdentity = "test-device"
             )
         )
@@ -254,23 +250,23 @@ class EpNodeTest {
     @Test
     fun `inbound connection accepted when listening`() = runTest {
         val listener = RecordingNodeListener()
+        val acceptor = TcpAcceptor(0)
         val node = EpNode(
-            config = nodeConfig.copy(listenPort = 0),
+            config = nodeConfig.copy(acceptor = acceptor),
             listener = listener,
             coroutineContext = UnconfinedTestDispatcher(),
         )
 
         node.addPeer(
-            PeerConfig(
+            PeerConfig.Inbound(
                 peerId = "charger-1",
-                direction = PeerDirection.INBOUND,
                 expectedIdentity = "test-device"
             )
         )
         node.start()
 
         // Connect a real TCP client
-        val port = node.localPort!!
+        val port = acceptor.localPort!!
         val clientTransport = dev.breischl.keneth.transport.tcp.RawTcpClientTransport("127.0.0.1", port)
         val clientMsgTransport = MessageTransport(clientTransport)
 
@@ -289,6 +285,42 @@ class EpNodeTest {
         assertContains(listener.events, "connected:charger-1")
 
         clientMsgTransport.close()
+        node.close()
+    }
+
+    // -- InMemoryFrameTransport integration --
+
+    @Test
+    fun `outbound peer connects via InMemoryPeerConnector without network`() = runTest {
+        // Demonstrates that InMemoryFrameTransport can replace TCP for browser-based simulation.
+        // One node uses InMemoryPeerConnector as its outbound strategy; the remote side is
+        // driven manually via the paired transport (simulating a device or another node).
+        val nodeIdentity = SessionParameters(identity = "sim-node", type = "router")
+        val peerIdentity = SessionParameters(identity = "sim-device", type = "charger")
+
+        val listener = RecordingNodeListener()
+        val node = EpNode(
+            config = NodeConfig(identity = nodeIdentity),
+            listener = listener,
+            coroutineContext = UnconfinedTestDispatcher(),
+        )
+
+        val connector = InMemoryPeerConnector()
+
+        node.addPeer(
+            PeerConfig.Outbound(
+                peerId = "sim-device",
+                connector = connector,
+                expectedIdentity = "sim-device",
+            )
+        )
+
+        // Drive the remote side: send SessionParameters to trigger the handshake
+        MessageTransport(connector.remoteTransport).send(peerIdentity)
+
+        assertContains(listener.events, "connected:sim-device")
+        assertEquals("sim-device", node.peers["sim-device"]?.remoteIdentity)
+
         node.close()
     }
 }

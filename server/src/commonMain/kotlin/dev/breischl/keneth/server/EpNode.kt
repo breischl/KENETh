@@ -1,8 +1,6 @@
 package dev.breischl.keneth.server
 
 import dev.breischl.keneth.core.messages.*
-import dev.breischl.keneth.transport.MessageTransport
-import dev.breischl.keneth.transport.TransportListener
 import dev.breischl.keneth.transport.safeNotify
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
@@ -13,7 +11,7 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * High-level EnergyNet Protocol node.
  *
- * Provides a single entry point that owns an [EpServer] and optional TCP acceptor,
+ * Provides a single entry point that owns an [EpServer] and optional inbound acceptor,
  * delegating peer management and exposing a clean API for connecting to and
  * communicating with EP devices.
  *
@@ -22,16 +20,16 @@ import kotlin.time.Duration.Companion.milliseconds
  * val node = EpNode(
  *     config = NodeConfig(
  *         identity = SessionParameters(identity = "router-1", type = "router"),
- *         listenPort = 56540,
+ *         acceptor = TcpAcceptor(port = 56540),
  *     ),
  * )
- * node.addPeer(PeerConfig(peerId = "charger-1", direction = PeerDirection.INBOUND))
+ * node.addPeer(PeerConfig.Inbound(peerId = "charger-1"))
  * node.start()
  * // ... node is now listening and managing peer connections
  * node.close()
  * ```
  *
- * @param config Node configuration including identity and listen port.
+ * @param config Node configuration including identity and optional inbound acceptor.
  * @param listener Optional callback for peer-level lifecycle events.
  * @param server Injectable [EpServer] for testing. When null, one is created internally
  *   with a bridging [ServerListener] that translates session events into [NodeListener] callbacks.
@@ -48,7 +46,6 @@ class EpNode(
         serverParameters = config.identity,
         listener = BridgingServerListener(),
         transportListener = config.transportListener,
-        outboundTransportFactory = defaultOutboundFactory(config.transportListener),
         coroutineContext = coroutineContext,
     )
 
@@ -57,36 +54,27 @@ class EpNode(
     private val scope = CoroutineScope(SupervisorJob() + coroutineContext)
     private val transfers = mutableMapOf<String, EnergyTransfer>()
 
-    /** Platform-specific acceptor (e.g., TcpAcceptor on JVM, null on JS). */
-    internal var tcpAcceptor: AutoCloseable? = null
-
-    /** The actual local port, set by [startPlatformSpecific] when TCP listening starts. */
-    internal var _localPort: Int? = null
-
     /**
      * Start the node.
      *
-     * If [NodeConfig.listenPort] is set, creates and starts a platform-specific acceptor
-     * to accept inbound connections (e.g., TCP on JVM).
+     * If [NodeConfig.acceptor] is set, starts it to begin accepting inbound connections.
      */
     fun start() {
-        startPlatformSpecific()
+        config.acceptor?.start(server)
     }
 
     override fun close() {
         // Cancel our scope first so transfer coroutines run their finally blocks
         // (including onTransferStopped callbacks) while the server is still alive.
         scope.cancel()
-        tcpAcceptor?.close()
-        tcpAcceptor = null
-        _localPort = null
+        config.acceptor?.close()
         server.close()
     }
 
     /**
      * Add a configured peer.
      *
-     * For outbound or bidirectional peers, a connection is initiated immediately.
+     * For [PeerConfig.Outbound] peers, a connection is initiated immediately.
      *
      * @see EpServer.addPeer
      */
@@ -109,9 +97,6 @@ class EpNode(
 
     /** Read-only snapshot of all configured peers. */
     val peers: Map<String, Peer> get() = server.peers
-
-    /** The local port the node is listening on, or null if not listening. */
-    val localPort: Int? get() = _localPort
 
     // -- Transfer management --
 
@@ -242,6 +227,3 @@ class EpNode(
         }
     }
 }
-
-internal expect fun EpNode.startPlatformSpecific()
-internal expect fun defaultOutboundFactory(listener: TransportListener?): (suspend (String, Int) -> MessageTransport)?

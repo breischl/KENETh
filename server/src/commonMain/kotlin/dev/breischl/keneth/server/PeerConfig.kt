@@ -1,25 +1,48 @@
 package dev.breischl.keneth.server
 
-/** The default EnergyNet Protocol port. */
-const val EP_DEFAULT_PORT = 56540
+import dev.breischl.keneth.transport.PeerConnector
 
 /**
  * Configuration for a known peer.
  *
- * @property peerId Unique identifier for this peer.
- * @property host Hostname or IP to connect to (required for [PeerDirection.OUTBOUND] and [PeerDirection.BIDIRECTIONAL]).
- * @property port TCP port to connect to.
- * @property direction Whether this peer connects to us, we connect to it, or both.
- * @property expectedIdentity The [dev.breischl.keneth.core.messages.SessionParameters.identity]
- *   we expect from this peer during handshake. Defaults to [peerId] if not set.
+ * Use [Inbound] for peers that connect to us, and [Outbound] for peers we connect to.
  */
-data class PeerConfig(
-    val peerId: String,
-    val host: String? = null,
-    val port: Int = EP_DEFAULT_PORT,
-    val direction: PeerDirection,
-    val expectedIdentity: String? = null,
-) {
+sealed class PeerConfig {
+    /** Unique identifier for this peer. */
+    abstract val peerId: String
+
+    /**
+     * The [dev.breischl.keneth.core.messages.SessionParameters.identity] we expect from
+     * this peer during handshake. Defaults to [peerId] if not set.
+     */
+    abstract val expectedIdentity: String?
+
     /** The identity to match against incoming [dev.breischl.keneth.core.messages.SessionParameters]. */
     val resolvedExpectedIdentity: String get() = expectedIdentity ?: peerId
+
+    /**
+     * An inbound-only peer that connects to us.
+     *
+     * @property peerId Unique identifier for this peer.
+     * @property expectedIdentity Expected identity during handshake; defaults to [peerId].
+     */
+    data class Inbound(
+        override val peerId: String,
+        override val expectedIdentity: String? = null,
+    ) : PeerConfig()
+
+    /**
+     * An outbound peer that we connect to.
+     *
+     * @property peerId Unique identifier for this peer.
+     * @property connector Strategy for establishing the outbound connection.
+     * @property expectedIdentity Expected identity during handshake; defaults to [peerId].
+     * @property acceptInbound If true, also accepts inbound connections from this peer.
+     */
+    data class Outbound(
+        override val peerId: String,
+        val connector: PeerConnector,
+        override val expectedIdentity: String? = null,
+        val acceptInbound: Boolean = false,
+    ) : PeerConfig()
 }

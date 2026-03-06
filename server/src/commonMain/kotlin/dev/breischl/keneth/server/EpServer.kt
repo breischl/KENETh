@@ -35,9 +35,7 @@ import kotlin.uuid.Uuid
  *
  * @param serverParameters Our identity, sent to each device during handshake.
  * @param listener Optional callback for session lifecycle events.
- * @param transportListener Optional listener forwarded to outbound transports.
- * @param outboundTransportFactory Factory used to create outbound [MessageTransport]s.
- *   Platform-specific: JVM uses TCP; JS provides null (no networking).
+ * @param transportListener Optional listener forwarded to outbound transports via [PeerConfig.Outbound.connector].
  * @param coroutineContext Additional coroutine context elements (e.g., a test dispatcher).
  *   A [SupervisorJob] is always added so that individual session failures are isolated.
  */
@@ -45,7 +43,6 @@ class EpServer(
     private val serverParameters: SessionParameters,
     private val listener: ServerListener? = null,
     private val transportListener: TransportListener? = null,
-    private val outboundTransportFactory: (suspend (String, Int) -> MessageTransport)? = null,
     coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ) : AutoCloseable {
 
@@ -89,22 +86,17 @@ class EpServer(
     /**
      * Add a configured peer.
      *
-     * For [PeerDirection.OUTBOUND] or [PeerDirection.BIDIRECTIONAL] peers, an outbound
-     * connection is initiated immediately.
+     * For [PeerConfig.Outbound] peers, an outbound connection is initiated immediately.
      *
-     * @throws IllegalArgumentException if [PeerConfig.host] is null for an outbound peer,
-     *   or if a peer with the same ID already exists.
+     * @throws IllegalArgumentException if a peer with the same ID already exists.
      */
     fun addPeer(config: PeerConfig) {
-        require(config.direction == PeerDirection.INBOUND || config.host != null) {
-            "host is required for OUTBOUND and BIDIRECTIONAL peers"
-        }
         val peer = Peer(config)
         require(!_peers.containsKey(config.peerId)) {
             "Peer '${config.peerId}' already exists"
         }
         _peers[config.peerId] = peer
-        if (config.direction != PeerDirection.INBOUND) {
+        if (config is PeerConfig.Outbound) {
             connectOutbound(peer)
         }
     }
@@ -124,11 +116,10 @@ class EpServer(
     }
 
     private fun connectOutbound(peer: Peer) {
-        val host = peer.config.host ?: return
-        val factory = outboundTransportFactory ?: return
+        val config = peer.config as? PeerConfig.Outbound ?: return
         scope.launch {
             try {
-                val transport = factory(host, peer.config.port)
+                val transport = config.connector.connect(transportListener)
                 // Create the session and link the peer BEFORE launching runSession,
                 // so the handshake code can find the peer even with eager dispatchers.
                 val session = DeviceSession(
@@ -236,9 +227,10 @@ class EpServer(
     private fun linkInboundPeer(session: DeviceSession, identity: String): Peer? {
         if (sessionToPeer.containsKey(session.id)) return null // already linked (outbound)
         val peer = _peers.values.firstOrNull { peer ->
-            peer.config.direction != PeerDirection.OUTBOUND &&
-                    peer.config.resolvedExpectedIdentity == identity &&
-                    peer.session == null
+            val config = peer.config
+            val acceptsInbound = config is PeerConfig.Inbound ||
+                    (config is PeerConfig.Outbound && config.acceptInbound)
+            acceptsInbound && config.resolvedExpectedIdentity == identity && peer.session == null
         } ?: return null
         peer.session = session
         sessionToPeer[session.id] = peer

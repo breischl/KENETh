@@ -12,11 +12,9 @@ kotlin {
             implementation(libs.obor)
             implementation(libs.kotlinxIo)
         }
-        val jvmTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
-                implementation(libs.kotlinxCoroutinesTest)
-            }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinxCoroutinesTest)
         }
     }
 }

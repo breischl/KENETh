@@ -86,9 +86,8 @@ class EnergyTransferTest {
         )
 
         node.addPeer(
-            PeerConfig(
+            PeerConfig.Inbound(
                 peerId = "charger-1",
-                direction = PeerDirection.INBOUND,
                 expectedIdentity = "test-device"
             )
         )
@@ -269,7 +268,7 @@ class EnergyTransferTest {
             coroutineContext = dispatcher,
         )
 
-        node.addPeer(PeerConfig(peerId = "charger-1", direction = PeerDirection.INBOUND))
+        node.addPeer(PeerConfig.Inbound(peerId = "charger-1"))
 
         val result = node.startTransfer("charger-1", TransferParams(supply = SupplyParameters()))
         assertIs<StartTransferResult.PeerNotConnected>(result)

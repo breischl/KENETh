@@ -4,7 +4,6 @@ import dev.breischl.keneth.transport.MessageTransport
 import dev.breischl.keneth.transport.TransportListener
 import dev.breischl.keneth.transport.tcp.RawTcpServerTransport
 import kotlinx.coroutines.*
-import java.io.Closeable
 import java.net.ServerSocket
 import java.net.SocketException
 
@@ -20,21 +19,19 @@ import java.net.SocketException
  * Example:
  * ```kotlin
  * val server = EpServer(serverParams)
- * val acceptor = TcpAcceptor(server, port = 56540)
- * acceptor.start()
+ * val acceptor = TcpAcceptor(port = 56540)
+ * acceptor.start(server)
  * // ... acceptor is now listening for connections
  * acceptor.close() // stops accepting
  * ```
  *
- * @param server The EP server to feed accepted connections into.
  * @param port The TCP port to listen on. Use 0 for an ephemeral port.
  * @param transportListener Optional listener forwarded to each [RawTcpServerTransport].
  */
 class TcpAcceptor(
-    private val server: EpServer,
     private val port: Int,
     private val transportListener: TransportListener? = null,
-) : Closeable {
+) : InboundAcceptor {
 
     private var serverSocket: ServerSocket? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -51,7 +48,7 @@ class TcpAcceptor(
      * Starts the accept loop. Binds the server socket and begins accepting connections.
      * Each accepted connection is wrapped and passed to the server.
      */
-    fun start() {
+    override fun start(server: EpServer) {
         check(acceptJob == null) { "Already started" }
         val socket = ServerSocket(port)
         serverSocket = socket

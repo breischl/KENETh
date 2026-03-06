@@ -49,8 +49,8 @@ class TcpAcceptorTest {
     @Test
     fun `accepted connection completes handshake`() = runBlocking {
         val server = EpServer(serverParams).tracked()
-        val acceptor = TcpAcceptor(server, 0).tracked()
-        acceptor.start()
+        val acceptor = TcpAcceptor(0).tracked()
+        acceptor.start(server)
 
         connectClient(acceptor.localPort!!)
 
@@ -65,8 +65,8 @@ class TcpAcceptorTest {
     @Test
     fun `multiple clients connect independently`() = runBlocking {
         val server = EpServer(serverParams).tracked()
-        val acceptor = TcpAcceptor(server, 0).tracked()
-        acceptor.start()
+        val acceptor = TcpAcceptor(0).tracked()
+        acceptor.start(server)
 
         val device1 = SessionParameters(identity = "device-1", type = "charger")
         val device2 = SessionParameters(identity = "device-2", type = "charger")
@@ -87,8 +87,8 @@ class TcpAcceptorTest {
     fun `close stops accepting new connections`() = runBlocking {
         withTimeout(5.seconds) {
             val server = EpServer(serverParams).tracked()
-            val acceptor = TcpAcceptor(server, 0).tracked()
-            acceptor.start()
+            val acceptor = TcpAcceptor(0).tracked()
+            acceptor.start(server)
             val port = acceptor.localPort!!
 
             // Verify it's working
@@ -116,8 +116,8 @@ class TcpAcceptorTest {
         }
 
         val server = EpServer(serverParams).tracked()
-        val acceptor = TcpAcceptor(server, 0, listener).tracked()
-        acceptor.start()
+        val acceptor = TcpAcceptor(0, listener).tracked()
+        acceptor.start(server)
 
         connectClient(acceptor.localPort!!)
 

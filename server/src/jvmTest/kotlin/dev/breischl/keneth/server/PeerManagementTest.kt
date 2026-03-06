@@ -8,7 +8,7 @@ import dev.breischl.keneth.core.parsing.ParseResult
 import dev.breischl.keneth.core.values.Current
 import dev.breischl.keneth.core.values.Voltage
 import dev.breischl.keneth.transport.MessageTransport
-import dev.breischl.keneth.transport.tcp.RawTcpClientTransport
+import dev.breischl.keneth.transport.tcp.TcpPeerConnector
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -105,7 +105,7 @@ class PeerManagementTest {
     fun `addPeer stores peer config`() = runTest {
         val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
 
-        val config = PeerConfig(peerId = "peer-1", direction = PeerDirection.INBOUND)
+        val config = PeerConfig.Inbound(peerId = "peer-1")
         server.addPeer(config)
 
         assertEquals(1, server.peers.size)
@@ -118,7 +118,7 @@ class PeerManagementTest {
     fun `removePeer removes peer`() = runTest {
         val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
 
-        server.addPeer(PeerConfig(peerId = "peer-1", direction = PeerDirection.INBOUND))
+        server.addPeer(PeerConfig.Inbound(peerId = "peer-1"))
         assertEquals(1, server.peers.size)
 
         server.removePeer("peer-1")
@@ -130,20 +130,10 @@ class PeerManagementTest {
     fun `addPeer rejects duplicate peerId`() = runTest {
         val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
 
-        server.addPeer(PeerConfig(peerId = "peer-1", direction = PeerDirection.INBOUND))
+        server.addPeer(PeerConfig.Inbound(peerId = "peer-1"))
 
         assertFailsWith<IllegalArgumentException> {
-            server.addPeer(PeerConfig(peerId = "peer-1", direction = PeerDirection.INBOUND))
-        }
-        server.close()
-    }
-
-    @Test
-    fun `addPeer rejects outbound without host`() = runTest {
-        val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
-
-        assertFailsWith<IllegalArgumentException> {
-            server.addPeer(PeerConfig(peerId = "peer-1", direction = PeerDirection.OUTBOUND))
+            server.addPeer(PeerConfig.Inbound(peerId = "peer-1"))
         }
         server.close()
     }
@@ -153,7 +143,7 @@ class PeerManagementTest {
         val listener = RecordingListener()
         val server = EpServer(serverIdentity, listener, coroutineContext = UnconfinedTestDispatcher())
 
-        server.addPeer(PeerConfig(peerId = "peer-1", direction = PeerDirection.INBOUND, expectedIdentity = "device-1"))
+        server.addPeer(PeerConfig.Inbound(peerId = "peer-1", expectedIdentity = "device-1"))
 
         val (_, transport) = channelTransportWithMessages(deviceIdentity)
         server.accept(transport)
@@ -170,7 +160,7 @@ class PeerManagementTest {
         val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
 
         // peerId matches identity, no explicit expectedIdentity
-        server.addPeer(PeerConfig(peerId = "device-1", direction = PeerDirection.INBOUND))
+        server.addPeer(PeerConfig.Inbound(peerId = "device-1"))
 
         val (_, transport) = channelTransportWithMessages(deviceIdentity)
         server.accept(transport)
@@ -186,9 +176,8 @@ class PeerManagementTest {
         val server = EpServer(serverIdentity, listener, coroutineContext = UnconfinedTestDispatcher())
 
         server.addPeer(
-            PeerConfig(
+            PeerConfig.Inbound(
                 peerId = "peer-1",
-                direction = PeerDirection.INBOUND,
                 expectedIdentity = "other-device"
             )
         )
@@ -210,7 +199,7 @@ class PeerManagementTest {
     fun `peer tracks remote parameters`() = runTest {
         val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
 
-        server.addPeer(PeerConfig(peerId = "device-1", direction = PeerDirection.INBOUND))
+        server.addPeer(PeerConfig.Inbound(peerId = "device-1"))
 
         val supply = SupplyParameters(voltage = Voltage(400.0), current = Current(32.0))
         val (_, transport) = channelTransportWithMessages(deviceIdentity, supply)
@@ -228,7 +217,7 @@ class PeerManagementTest {
         val listener = RecordingListener()
         val server = EpServer(serverIdentity, listener, coroutineContext = UnconfinedTestDispatcher())
 
-        server.addPeer(PeerConfig(peerId = "device-1", direction = PeerDirection.INBOUND))
+        server.addPeer(PeerConfig.Inbound(peerId = "device-1"))
 
         val (fake, transport) = channelTransportWithMessages(deviceIdentity)
         server.accept(transport)
@@ -251,7 +240,7 @@ class PeerManagementTest {
         val listener = RecordingListener()
         val server = EpServer(serverIdentity, listener, coroutineContext = UnconfinedTestDispatcher())
 
-        server.addPeer(PeerConfig(peerId = "device-1", direction = PeerDirection.INBOUND))
+        server.addPeer(PeerConfig.Inbound(peerId = "device-1"))
 
         val (fake, transport) = channelTransportWithMessages(deviceIdentity)
         val session = server.accept(transport)
@@ -276,18 +265,12 @@ class PeerManagementTest {
         val port = remoteServer.localPort
 
         val listener = RecordingListener()
-        val server = EpServer(
-            serverIdentity,
-            listener,
-            outboundTransportFactory = { host, port -> MessageTransport(RawTcpClientTransport(host, port)) },
-        ).tracked()
+        val server = EpServer(serverIdentity, listener).tracked()
 
         server.addPeer(
-            PeerConfig(
+            PeerConfig.Outbound(
                 peerId = "remote-device",
-                host = "127.0.0.1",
-                port = port,
-                direction = PeerDirection.OUTBOUND,
+                connector = TcpPeerConnector("127.0.0.1", port),
             )
         )
 
@@ -315,7 +298,7 @@ class PeerManagementTest {
         val listener = RecordingListener()
         val server = EpServer(serverIdentity, listener, coroutineContext = UnconfinedTestDispatcher())
 
-        server.addPeer(PeerConfig(peerId = "device-1", direction = PeerDirection.INBOUND))
+        server.addPeer(PeerConfig.Inbound(peerId = "device-1"))
 
         val (fake, transport) = channelTransportWithMessages(deviceIdentity)
         server.accept(transport)
