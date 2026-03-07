@@ -3,10 +3,7 @@ package dev.breischl.keneth.server
 import dev.breischl.keneth.core.frames.Frame
 import dev.breischl.keneth.core.messages.Message
 import dev.breischl.keneth.core.messages.SessionParameters
-import dev.breischl.keneth.core.messages.SupplyParameters
 import dev.breischl.keneth.core.parsing.ParseResult
-import dev.breischl.keneth.core.values.Current
-import dev.breischl.keneth.core.values.Voltage
 import dev.breischl.keneth.transport.MessageTransport
 import dev.breischl.keneth.transport.tcp.TcpPeerConnector
 import kotlinx.coroutines.*
@@ -192,23 +189,6 @@ class PeerManagementTest {
         assertFalse(peer.isConnected)
         assertNull(peer.remoteIdentity)
         assertFalse(listener.events.any { it.startsWith("peerConnected") })
-        node.close()
-    }
-
-    @Test
-    fun `peer tracks remote parameters`() = runTest {
-        val node = EpNode(config = NodeConfig(identity = serverIdentity), coroutineContext = UnconfinedTestDispatcher())
-
-        node.addPeer(PeerConfig.Inbound(peerId = "device-1"))
-
-        val supply = SupplyParameters(voltage = Voltage(400.0), current = Current(32.0))
-        val (_, transport) = channelTransportWithMessages(deviceIdentity, supply)
-        node.accept(transport)
-
-        val peer = node.peers["device-1"]!!
-        assertNotNull(peer.latestSupply)
-        assertEquals(400.0, peer.latestSupply!!.voltage?.volts)
-        assertEquals(32.0, peer.latestSupply!!.current?.amperes)
         node.close()
     }
 

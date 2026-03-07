@@ -1,13 +1,13 @@
 package dev.breischl.keneth.server
 
-import dev.breischl.keneth.core.messages.*
+import dev.breischl.keneth.core.messages.Message
+import dev.breischl.keneth.core.messages.SessionParameters
 import dev.breischl.keneth.transport.MessageTransport
 
 /**
  * Represents a connected device and its current state.
  *
- * Each session tracks the device's identity (from the handshake) and the
- * latest supply, demand, and storage parameters the device has advertised.
+ * Each session tracks the device's identity (from the handshake).
  *
  * The server manages session state internally. External code can read
  * properties and call [send] to send messages to the device.
@@ -24,18 +24,6 @@ class DeviceSession internal constructor(
 
     /** Current lifecycle state of this session. */
     var state: SessionState = SessionState.AWAITING_SESSION
-        internal set
-
-    /** Latest [SupplyParameters] received from the device, or null if none received yet. */
-    var latestSupply: SupplyParameters? = null
-        internal set
-
-    /** Latest [DemandParameters] received from the device, or null if none received yet. */
-    var latestDemand: DemandParameters? = null
-        internal set
-
-    /** Latest [StorageParameters] received from the device, or null if none received yet. */
-    var latestStorage: StorageParameters? = null
         internal set
 
     /** Called after each successful [send]. Set by [EpNode] to fire listener notifications. */

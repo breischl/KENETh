@@ -1,9 +1,6 @@
 package dev.breischl.keneth.server
 
-import dev.breischl.keneth.core.messages.DemandParameters
 import dev.breischl.keneth.core.messages.SessionParameters
-import dev.breischl.keneth.core.messages.StorageParameters
-import dev.breischl.keneth.core.messages.SupplyParameters
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -18,9 +15,6 @@ import kotlin.time.Instant
  * @property sessionParameters Device identity from the handshake, or null if not yet completed.
  * @property state Session lifecycle state at the time of the snapshot.
  * @property remoteIdentity The identity reported by the remote device, or null if not yet connected.
- * @property latestSupply Latest supply parameters at the time of the snapshot, or null.
- * @property latestDemand Latest demand parameters at the time of the snapshot, or null.
- * @property latestStorage Latest storage parameters at the time of the snapshot, or null.
  * @property timestamp When the snapshot was taken.
  */
 data class SessionSnapshot(
@@ -29,9 +23,6 @@ data class SessionSnapshot(
     val sessionParameters: SessionParameters?,
     val state: SessionState,
     val remoteIdentity: String?,
-    val latestSupply: SupplyParameters?,
-    val latestDemand: DemandParameters?,
-    val latestStorage: StorageParameters?,
     val timestamp: Instant,
 ) {
     /** True only when the session state is [SessionState.ACTIVE]. */
@@ -45,8 +36,5 @@ internal fun DeviceSession.snapshot(peerId: String? = null) = SessionSnapshot(
     sessionParameters = sessionParameters,
     state = state,
     remoteIdentity = sessionParameters?.identity,
-    latestSupply = latestSupply,
-    latestDemand = latestDemand,
-    latestStorage = latestStorage,
     timestamp = Clock.System.now(),
 )

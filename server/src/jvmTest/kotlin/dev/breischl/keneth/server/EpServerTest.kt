@@ -3,12 +3,11 @@ package dev.breischl.keneth.server
 import dev.breischl.keneth.core.frames.Frame
 import dev.breischl.keneth.core.messages.*
 import dev.breischl.keneth.core.parsing.ParseResult
-import dev.breischl.keneth.core.values.*
+import dev.breischl.keneth.core.values.Voltage
 import dev.breischl.keneth.transport.InMemoryFrameTransport
 import dev.breischl.keneth.transport.MessageTransport
 import dev.breischl.keneth.transport.TransportListener
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
@@ -154,59 +153,6 @@ class EpServerTest {
         assertEquals(SessionState.CLOSED, session.state)
         assertContains(nodeListener.events, "handshakeFailed")
         assertContains(nodeListener.lastHandshakeFailReason!!, "Ping")
-        node.close()
-    }
-
-    // -- Parameter tracking tests --
-
-    @Test
-    fun `tracks latest SupplyParameters`() = runTest {
-        val supply = SupplyParameters(
-            voltage = Voltage(400.0),
-            current = Current(32.0),
-        )
-        val (_, transport) = transportWithMessages(deviceIdentity, supply)
-        val node = EpNode(config = NodeConfig(identity = serverIdentity), coroutineContext = UnconfinedTestDispatcher())
-
-        val session = node.accept(transport)
-
-        assertNotNull(session.latestSupply)
-        assertEquals(400.0, session.latestSupply!!.voltage?.volts)
-        assertEquals(32.0, session.latestSupply!!.current?.amperes)
-        node.close()
-    }
-
-    @Test
-    fun `tracks latest DemandParameters`() = runTest {
-        val demand = DemandParameters(
-            voltage = Voltage(400.0),
-            current = Current(16.0),
-        )
-        val (_, transport) = transportWithMessages(deviceIdentity, demand)
-        val node = EpNode(config = NodeConfig(identity = serverIdentity), coroutineContext = UnconfinedTestDispatcher())
-
-        val session = node.accept(transport)
-
-        assertNotNull(session.latestDemand)
-        assertEquals(400.0, session.latestDemand!!.voltage?.volts)
-        assertEquals(16.0, session.latestDemand!!.current?.amperes)
-        node.close()
-    }
-
-    @Test
-    fun `tracks latest StorageParameters`() = runTest {
-        val storage = StorageParameters(
-            soc = Percentage(75.0),
-            capacity = Energy(50000.0),
-        )
-        val (_, transport) = transportWithMessages(deviceIdentity, storage)
-        val node = EpNode(config = NodeConfig(identity = serverIdentity), coroutineContext = UnconfinedTestDispatcher())
-
-        val session = node.accept(transport)
-
-        assertNotNull(session.latestStorage)
-        assertEquals(75.0, session.latestStorage!!.soc?.percent)
-        assertEquals(50000.0, session.latestStorage!!.capacity?.wattHours)
         node.close()
     }
 
@@ -366,13 +312,10 @@ class EpServerTest {
         val (_, transport) = transportWithMessages(deviceIdentity, Ping)
         val node = EpNode(config = NodeConfig(identity = serverIdentity), listener = nodeListener, coroutineContext = UnconfinedTestDispatcher())
 
-        val session = node.accept(transport)
+        node.accept(transport)
 
         // Ping should be received but not change any parameters
         assertContains(nodeListener.events, "message:Ping")
-        assertNull(session.latestSupply)
-        assertNull(session.latestDemand)
-        assertNull(session.latestStorage)
         node.close()
     }
 }

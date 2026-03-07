@@ -349,18 +349,9 @@ class EpNode(
 
     private fun handleActiveMessage(session: DeviceSession, message: Message) {
         val peer = peerForSession(session.id)
-        when (message) {
-            is SupplyParameters -> session.latestSupply = message
-            is DemandParameters -> session.latestDemand = message
-            is StorageParameters -> session.latestStorage = message
-            is Ping -> { /* keep-alive, nothing to update */ }
-
-            is SoftDisconnect -> {
-                session.state = SessionState.DISCONNECTING
-                listener.safeNotify { onSessionDisconnecting(session.snapshot(peerId = peer?.peerId), message) }
-            }
-
-            else -> { /* unknown message types */ }
+        if (message is SoftDisconnect) {
+            session.state = SessionState.DISCONNECTING
+            listener.safeNotify { onSessionDisconnecting(session.snapshot(peerId = peer?.peerId), message) }
         }
 
         // Fire peer-level event for energy parameters
