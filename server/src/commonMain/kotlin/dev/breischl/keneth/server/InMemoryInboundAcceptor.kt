@@ -58,12 +58,12 @@ class InMemoryInboundAcceptor(
     }
 
     /**
-     * Starts the accept loop. Drains queued connections and passes each to [EpServer.accept].
+     * Starts the accept loop. Drains queued connections and passes each to [EpNode.accept].
      */
-    override fun start(server: EpServer) {
+    override fun start(node: EpNode) {
         scope.launch {
             for (transport in pendingConnections) {
-                server.accept(transport)
+                node.accept(transport)
             }
         }
     }

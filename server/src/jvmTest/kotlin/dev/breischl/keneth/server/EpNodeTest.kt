@@ -112,20 +112,17 @@ class EpNodeTest {
     // -- Peer management tests --
 
     @Test
-    fun `peer management delegates to server`() = runTest {
-        val server = EpServer(serverIdentity, coroutineContext = UnconfinedTestDispatcher())
-        val node = EpNode(config = nodeConfig, server = server)
+    fun `peer management add and remove`() = runTest {
+        val node = EpNode(config = nodeConfig, coroutineContext = UnconfinedTestDispatcher())
 
         val peerConfig = PeerConfig.Inbound(peerId = "charger-1")
         node.addPeer(peerConfig)
 
         assertTrue(node.peers.containsKey("charger-1"))
-        assertTrue(server.peers.containsKey("charger-1"))
 
         node.removePeer("charger-1")
 
         assertFalse(node.peers.containsKey("charger-1"))
-        assertFalse(server.peers.containsKey("charger-1"))
 
         node.close()
     }
@@ -150,7 +147,7 @@ class EpNodeTest {
 
         // Simulate inbound connection via the internal server
         val (fake, transport) = channelTransportWithMessages(deviceIdentity)
-        node.server.accept(transport)
+        node.accept(transport)
 
         assertContains(listener.events, "connected:charger-1")
         assertEquals(1, listener.connectedPeers.size)
@@ -177,7 +174,7 @@ class EpNodeTest {
         )
 
         val (fake, transport) = channelTransportWithMessages(deviceIdentity)
-        node.server.accept(transport)
+        node.accept(transport)
 
         // Close the transport to trigger disconnect
         fake.close()
@@ -209,7 +206,7 @@ class EpNodeTest {
         val storage = StorageParameters(soc = Percentage(75.0))
 
         val (fake, transport) = channelTransportWithMessages(deviceIdentity, supply, demand, storage)
-        node.server.accept(transport)
+        node.accept(transport)
 
         assertContains(listener.events, "params:charger-1:SupplyParameters")
         assertContains(listener.events, "params:charger-1:DemandParameters")
@@ -239,7 +236,7 @@ class EpNodeTest {
             override fun close() {}
         }
 
-        node.server.accept(MessageTransport(errorTransport))
+        node.accept(MessageTransport(errorTransport))
 
         assertContains(listener.events, "error:test error")
         assertEquals(1, listener.errors.size)
@@ -288,6 +285,63 @@ class EpNodeTest {
         node.close()
     }
 
+    // -- Session-level listener tests --
+
+    @Test
+    fun `NodeListener onSessionCreated fires on accept`() = runTest {
+        val events = mutableListOf<String>()
+        val node = EpNode(
+            config = nodeConfig,
+            listener = object : NodeListener {
+                override fun onSessionCreated(session: SessionSnapshot) { events.add("created") }
+            },
+            coroutineContext = UnconfinedTestDispatcher(),
+        )
+        val (fake, transport) = channelTransportWithMessages(deviceIdentity)
+        node.accept(transport)
+        assertContains(events, "created")
+        fake.close()
+        node.close()
+    }
+
+    @Test
+    fun `NodeListener onSessionActive fires after handshake`() = runTest {
+        val events = mutableListOf<String>()
+        val node = EpNode(
+            config = nodeConfig,
+            listener = object : NodeListener {
+                override fun onSessionActive(session: SessionSnapshot) { events.add("active") }
+            },
+            coroutineContext = UnconfinedTestDispatcher(),
+        )
+        val (fake, transport) = channelTransportWithMessages(deviceIdentity)
+        node.accept(transport)
+        assertContains(events, "active")
+        fake.close()
+        node.close()
+    }
+
+    @Test
+    fun `NodeListener onSessionError fires on transport error`() = runTest {
+        val node = EpNode(
+            config = nodeConfig,
+            listener = object : NodeListener {
+                override fun onSessionError(session: SessionSnapshot, error: Throwable) {
+                    // just needs to not throw
+                }
+            },
+            coroutineContext = UnconfinedTestDispatcher(),
+        )
+        val errorTransport = object : dev.breischl.keneth.transport.FrameTransport {
+            override suspend fun send(frame: dev.breischl.keneth.core.frames.Frame) {}
+            override fun receive(): kotlinx.coroutines.flow.Flow<dev.breischl.keneth.core.parsing.ParseResult<dev.breischl.keneth.core.frames.Frame>> =
+                kotlinx.coroutines.flow.flow { throw RuntimeException("test error") }
+            override fun close() {}
+        }
+        node.accept(MessageTransport(errorTransport))
+        node.close()
+    }
+
     // -- SessionSnapshot tests --
 
     @Test
@@ -296,9 +350,11 @@ class EpNodeTest {
         node.addPeer(PeerConfig.Inbound(peerId = "charger-1", expectedIdentity = "test-device"))
         val (fake, transport) = channelTransportWithMessages(deviceIdentity)
         val session = node.accept(transport)
-        assertEquals("charger-1", session.snapshot().peerId)
-        assertEquals("test-device", session.snapshot().remoteIdentity)
-        assertNotNull(session.snapshot().sessionParameters)
+        val peer = node.peerForSession(session.id)
+        val snap = session.snapshot(peerId = peer?.peerId)
+        assertEquals("charger-1", snap.peerId)
+        assertEquals("test-device", snap.remoteIdentity)
+        assertNotNull(snap.sessionParameters)
         fake.close()
         node.close()
     }

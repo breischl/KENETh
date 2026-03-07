@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.seconds
 
 class TcpAcceptorTest {
 
-    private val serverParams = SessionParameters(identity = "test-server", type = "router")
+    private val nodeParams = SessionParameters(identity = "test-server", type = "router")
     private val deviceParams = SessionParameters(identity = "test-device", type = "charger")
 
     private val cleanupList = mutableListOf<AutoCloseable>()
@@ -48,25 +48,25 @@ class TcpAcceptorTest {
 
     @Test
     fun `accepted connection completes handshake`() = runBlocking {
-        val server = EpServer(serverParams).tracked()
+        val node = EpNode(config = NodeConfig(identity = nodeParams)).tracked()
         val acceptor = TcpAcceptor(0).tracked()
-        acceptor.start(server)
+        acceptor.start(node)
 
         connectClient(acceptor.localPort!!)
 
-        awaitCondition { server.sessions.values.any { it.state == SessionState.ACTIVE } }
+        awaitCondition { node.sessions.values.any { it.state == SessionState.ACTIVE } }
 
-        assertEquals(1, server.sessions.size)
-        val session = server.sessions.values.first()
+        assertEquals(1, node.sessions.size)
+        val session = node.sessions.values.first()
         assertEquals(SessionState.ACTIVE, session.state)
         assertEquals("test-device", session.sessionParameters?.identity)
     }
 
     @Test
     fun `multiple clients connect independently`() = runBlocking {
-        val server = EpServer(serverParams).tracked()
+        val node = EpNode(config = NodeConfig(identity = nodeParams)).tracked()
         val acceptor = TcpAcceptor(0).tracked()
-        acceptor.start(server)
+        acceptor.start(node)
 
         val device1 = SessionParameters(identity = "device-1", type = "charger")
         val device2 = SessionParameters(identity = "device-2", type = "charger")
@@ -75,34 +75,34 @@ class TcpAcceptorTest {
         connectClient(acceptor.localPort!!, device2)
 
         awaitCondition {
-            server.sessions.values.count { it.state == SessionState.ACTIVE } >= 2
+            node.sessions.values.count { it.state == SessionState.ACTIVE } >= 2
         }
 
-        assertEquals(2, server.sessions.size)
-        val identities = server.sessions.values.map { it.sessionParameters?.identity }.toSet()
+        assertEquals(2, node.sessions.size)
+        val identities = node.sessions.values.map { it.sessionParameters?.identity }.toSet()
         assertEquals(setOf("device-1", "device-2"), identities)
     }
 
     @Test
     fun `close stops accepting new connections`() = runBlocking {
         withTimeout(5.seconds) {
-            val server = EpServer(serverParams).tracked()
+            val node = EpNode(config = NodeConfig(identity = nodeParams)).tracked()
             val acceptor = TcpAcceptor(0).tracked()
-            acceptor.start(server)
+            acceptor.start(node)
             val port = acceptor.localPort!!
 
             // Verify it's working
             connectClient(port)
-            awaitCondition { server.sessions.values.any { it.state == SessionState.ACTIVE } }
+            awaitCondition { node.sessions.values.any { it.state == SessionState.ACTIVE } }
 
-            val sessionCountBefore = server.sessions.size
+            val sessionCountBefore = node.sessions.size
             acceptor.close()
 
             // Server socket is closed — verify via isClosed on the acceptor
             assertTrue(acceptor.isClosed, "Acceptor should be closed")
 
-            // Existing sessions remain (EpServer owns them, not the acceptor)
-            assertEquals(sessionCountBefore, server.sessions.size)
+            // Existing sessions remain (EpNode owns them, not the acceptor)
+            assertEquals(sessionCountBefore, node.sessions.size)
         }
     }
 
@@ -115,9 +115,9 @@ class TcpAcceptorTest {
             }
         }
 
-        val server = EpServer(serverParams).tracked()
+        val node = EpNode(config = NodeConfig(identity = nodeParams, transportListener = listener)).tracked()
         val acceptor = TcpAcceptor(0, listener).tracked()
-        acceptor.start(server)
+        acceptor.start(node)
 
         connectClient(acceptor.localPort!!)
 

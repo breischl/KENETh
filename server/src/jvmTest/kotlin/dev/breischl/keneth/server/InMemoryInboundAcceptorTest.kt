@@ -13,72 +13,71 @@ class InMemoryInboundAcceptorTest {
     private val identityB = SessionParameters(identity = "node-b", type = "router")
 
     private class RecordingNodeListener : NodeListener {
-        val connectedPeers = mutableListOf<PeerSnapshot>()
-        val disconnectedPeers = mutableListOf<PeerSnapshot>()
+        val connectedPeers = mutableListOf<SessionSnapshot>()
+        val disconnectedPeers = mutableListOf<SessionSnapshot>()
 
-        override fun onPeerConnected(peer: PeerSnapshot) {
-            connectedPeers.add(peer)
+        override fun onPeerConnected(session: SessionSnapshot) {
+            connectedPeers.add(session)
         }
 
-        override fun onPeerDisconnected(peer: PeerSnapshot) {
-            disconnectedPeers.add(peer)
+        override fun onPeerDisconnected(session: SessionSnapshot) {
+            disconnectedPeers.add(session)
         }
     }
 
     @Test
-    fun `connect queues transport and start drains it into server accept`() = runTest {
+    fun `connect queues transport and start drains it into node accept`() = runTest {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         val acceptor = InMemoryInboundAcceptor(dispatcher)
 
-        val sessions = mutableListOf<DeviceSession>()
-        val server = EpServer(
-            serverParameters = identityA,
+        val node = EpNode(
+            config = NodeConfig(identity = identityA),
             coroutineContext = dispatcher,
         )
 
         // start before connect — channel is empty, loop suspends
-        acceptor.start(server)
-        assertEquals(0, server.sessions.size)
+        acceptor.start(node)
+        assertEquals(0, node.sessions.size)
 
         // connect enqueues one transport; drain loop should pick it up immediately
         acceptor.connect(listener = null)
-        assertEquals(1, server.sessions.size)
+        assertEquals(1, node.sessions.size)
 
         acceptor.close()
-        server.close()
+        node.close()
     }
 
     @Test
     fun `multiple connects are all accepted`() = runTest {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         val acceptor = InMemoryInboundAcceptor(dispatcher)
-        val server = EpServer(serverParameters = identityA, coroutineContext = dispatcher)
+        val node = EpNode(config = NodeConfig(identity = identityA), coroutineContext = dispatcher)
 
-        acceptor.start(server)
+        acceptor.start(node)
 
         repeat(3) { acceptor.connect(listener = null) }
 
-        assertEquals(3, server.sessions.size)
+        assertEquals(3, node.sessions.size)
 
         acceptor.close()
-        server.close()
+        node.close()
     }
 
     @Test
     fun `connect before start — transports are buffered and accepted on start`() = runTest {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         val acceptor = InMemoryInboundAcceptor(dispatcher)
-        val server = EpServer(serverParameters = identityA, coroutineContext = dispatcher)
+        val node = EpNode(config = NodeConfig(identity = identityA), coroutineContext = dispatcher)
 
         // connect first, start second
         repeat(2) { acceptor.connect(listener = null) }
-        assertEquals(0, server.sessions.size)
+        assertEquals(0, node.sessions.size)
 
-        acceptor.start(server)
-        assertEquals(2, server.sessions.size)
+        acceptor.start(node)
+        assertEquals(2, node.sessions.size)
 
         acceptor.close()
-        server.close()
+        node.close()
     }
 
     @Test

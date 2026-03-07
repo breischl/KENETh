@@ -1,19 +1,23 @@
+@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+
 package dev.breischl.keneth.server
 
 import dev.breischl.keneth.core.messages.*
+import dev.breischl.keneth.transport.MessageTransport
 import dev.breischl.keneth.transport.safeNotify
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.uuid.Uuid
 
 /**
  * High-level EnergyNet Protocol node.
  *
- * Provides a single entry point that owns an [EpServer] and optional inbound acceptor,
- * delegating peer management and exposing a clean API for connecting to and
- * communicating with EP devices.
+ * Manages device sessions, peer lifecycle, and energy transfers in one place.
+ * Accepts [MessageTransport] connections (via [accept] or an [InboundAcceptor]),
+ * enforces the EP handshake, dispatches messages, and tracks per-device state.
  *
  * Example:
  * ```kotlin
@@ -30,29 +34,58 @@ import kotlin.time.Duration.Companion.milliseconds
  * ```
  *
  * @param config Node configuration including identity and optional inbound acceptor.
- * @param listener Optional callback for peer-level lifecycle events.
- * @param server Injectable [EpServer] for testing. When null, one is created internally
- *   with a bridging [ServerListener] that translates session events into [NodeListener] callbacks.
+ * @param listener Optional callback for session and peer lifecycle events.
  * @param coroutineContext Additional coroutine context elements (e.g., a test dispatcher).
  */
 class EpNode(
     internal val config: NodeConfig,
     private val listener: NodeListener? = null,
-    server: EpServer? = null,
     private val coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ) : AutoCloseable {
 
-    internal val server: EpServer = server ?: EpServer(
-        serverParameters = config.identity,
-        listener = BridgingServerListener(),
-        transportListener = config.transportListener,
-        coroutineContext = coroutineContext,
-    )
+    private val _sessions = mutableMapOf<String, DeviceSession>()
+    private val _peers = mutableMapOf<String, Peer>()
+    private val sessionToPeer = mutableMapOf<String, Peer>()
 
-    // Separate scope from EpServer — close() cancels this first so transfer
-    // coroutines complete their cleanup while the server is still alive.
-    private val scope = CoroutineScope(SupervisorJob() + coroutineContext)
+    // sessionScope drives all session coroutines.
+    private val sessionScope = CoroutineScope(SupervisorJob() + coroutineContext)
+
+    // transferScope is cancelled first in close() so transfer coroutines can run their
+    // finally blocks (including onTransferStopped callbacks) while sessions are still alive.
+    private val transferScope = CoroutineScope(SupervisorJob() + coroutineContext)
+
     private val transfers = mutableMapOf<String, EnergyTransfer>()
+
+    /** Read-only snapshot of all sessions currently tracked by this node. */
+    internal val sessions: Map<String, DeviceSession> get() = _sessions.toMap()
+
+    /** Read-only snapshot of all configured peers. */
+    val peers: Map<String, Peer> get() = _peers.toMap()
+
+    /** Returns the peer linked to the given session ID, or null if none. */
+    internal fun peerForSession(sessionId: String): Peer? = sessionToPeer[sessionId]
+
+    /**
+     * Accept a new connection.
+     *
+     * Creates a [DeviceSession] in [SessionState.AWAITING_SESSION] state and
+     * launches a coroutine to process the session lifecycle. Returns the
+     * session immediately.
+     *
+     * @param transport The already-established message transport for this connection.
+     * @return The new session (initially in [SessionState.AWAITING_SESSION]).
+     */
+    internal fun accept(transport: MessageTransport): DeviceSession {
+        val session = DeviceSession(
+            id = Uuid.random().toString(),
+            transport = transport,
+        )
+        wireAfterSend(session)
+        _sessions[session.id] = session
+        listener.safeNotify { onSessionCreated(session.snapshot(peerId = null)) }
+        sessionScope.launch { runSession(session) }
+        return session
+    }
 
     /**
      * Start the node.
@@ -60,15 +93,15 @@ class EpNode(
      * If [NodeConfig.acceptor] is set, starts it to begin accepting inbound connections.
      */
     fun start() {
-        config.acceptor?.start(server)
+        config.acceptor?.start(this)
     }
 
     override fun close() {
-        // Cancel our scope first so transfer coroutines run their finally blocks
-        // (including onTransferStopped callbacks) while the server is still alive.
-        scope.cancel()
+        // Cancel transfers first so their finally blocks run while sessions are still alive.
+        transferScope.cancel()
         config.acceptor?.close()
-        server.close()
+        _sessions.values.toList().forEach { closeSession(it) }
+        sessionScope.cancel()
     }
 
     /**
@@ -76,10 +109,17 @@ class EpNode(
      *
      * For [PeerConfig.Outbound] peers, a connection is initiated immediately.
      *
-     * @see EpServer.addPeer
+     * @throws IllegalArgumentException if a peer with the same ID already exists.
      */
     fun addPeer(config: PeerConfig) {
-        server.addPeer(config)
+        val peer = Peer(config)
+        require(!_peers.containsKey(config.peerId)) {
+            "Peer '${config.peerId}' already exists"
+        }
+        _peers[config.peerId] = peer
+        if (config is PeerConfig.Outbound) {
+            connectOutbound(peer)
+        }
     }
 
     /**
@@ -87,16 +127,35 @@ class EpNode(
      *
      * If the peer has an active session, it is disconnected first.
      * Any active transfer for this peer is stopped.
-     *
-     * @see EpServer.removePeer
      */
     fun removePeer(peerId: String) {
         stopTransfer(peerId)
-        server.removePeer(peerId)
+        val peer = _peers.remove(peerId) ?: return
+        val session = peer.session
+        if (session != null) {
+            closeSession(session)
+        }
     }
 
-    /** Read-only snapshot of all configured peers. */
-    val peers: Map<String, Peer> get() = server.peers
+    /**
+     * Gracefully disconnect a session.
+     *
+     * Sends a [SoftDisconnect] message to the device (if the session is active)
+     * and closes the session.
+     */
+    suspend fun disconnect(session: DeviceSession, reason: String? = null) {
+        val peer = peerForSession(session.id)
+        if (session.state == SessionState.ACTIVE) {
+            session.state = SessionState.DISCONNECTING
+            try {
+                session.send(SoftDisconnect(reconnect = false, reason = reason))
+            } catch (_: Exception) {
+                // Transport may already be broken
+            }
+            listener.safeNotify { onSessionDisconnecting(session.snapshot(peerId = peer?.peerId), null) }
+        }
+        closeSession(session)
+    }
 
     // -- Transfer management --
 
@@ -111,8 +170,6 @@ class EpNode(
      * Note: a [StartTransferResult.Success] means the transfer was launched, but the
      * peer could disconnect between the state check and the first tick. In that case
      * the transfer stops immediately and [NodeListener.onTransferStopped] fires.
-     * Callers should handle this via the listener rather than assuming Success
-     * guarantees sustained publishing.
      *
      * @param peerId The peer to send parameters to.
      * @param params The parameters to publish.
@@ -123,7 +180,7 @@ class EpNode(
         params: TransferParams,
         tickRate: Duration = 100.milliseconds
     ): StartTransferResult {
-        val peer = server.peers[peerId]
+        val peer = _peers[peerId]
             ?: return StartTransferResult.PeerNotFound(peerId)
         if (peer.connectionState != ConnectionState.CONNECTED) {
             return StartTransferResult.PeerNotConnected(peerId, peer.connectionState)
@@ -135,7 +192,7 @@ class EpNode(
         val transfer = EnergyTransfer(peerId = peerId, _params = params)
         transfers[peerId] = transfer
 
-        transfer.job = scope.launch {
+        transfer.job = transferScope.launch {
             try {
                 while (isActive) {
                     val session = peer.session
@@ -187,43 +244,143 @@ class EpNode(
         transfer.job?.cancel()
     }
 
-    /**
-     * Bridges [ServerListener] events to [NodeListener] callbacks.
-     *
-     * Translates low-level session events into the higher-level peer-focused API:
-     * - Peer connect/disconnect → [NodeListener.onPeerConnected] / [NodeListener.onPeerDisconnected]
-     * - Supply/Demand/Storage messages → [NodeListener.onPeerParametersUpdated]
-     * - Sent messages → [NodeListener.onMessageSent]
-     * - Session errors → [NodeListener.onError]
-     */
-    private inner class BridgingServerListener : ServerListener {
-        override fun onPeerConnected(peer: PeerSnapshot) {
-            listener.safeNotify { onPeerConnected(peer) }
-        }
+    // -- Private session machinery (absorbed from EpServer) --
 
-        override fun onPeerDisconnected(peer: PeerSnapshot) {
-            stopTransfer(peer.peerId)
-            listener.safeNotify { onPeerDisconnected(peer) }
+    private fun connectOutbound(peer: Peer) {
+        val peerConfig = peer.config as? PeerConfig.Outbound ?: return
+        sessionScope.launch {
+            try {
+                val transport = peerConfig.connector.connect(config.transportListener)
+                // Create the session and link the peer BEFORE launching runSession,
+                // so the handshake code can find the peer even with eager dispatchers.
+                val session = DeviceSession(
+                    id = Uuid.random().toString(),
+                    transport = transport,
+                )
+                wireAfterSend(session)
+                peer.session = session
+                sessionToPeer[session.id] = peer
+                _sessions[session.id] = session
+                listener.safeNotify { onSessionCreated(session.snapshot(peerId = peer.peerId)) }
+                // Outbound side initiates the EP handshake by sending our identity first.
+                session.send(config.identity)
+                runSession(session)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Connection failed — peer stays DISCONNECTED
+            }
         }
+    }
 
-        override fun onMessageReceived(session: DeviceSessionSnapshot, message: Message) {
-            if (message is SupplyParameters || message is DemandParameters || message is StorageParameters) {
-                val peer = server.peerForSession(session.id)
-                if (peer != null) {
-                    listener.safeNotify { onPeerParametersUpdated(peer.snapshot(), message) }
+    /** Wires the [DeviceSession.afterSend] hook to fire [NodeListener.onMessageSent]. */
+    private fun wireAfterSend(session: DeviceSession) {
+        session.afterSend = { message ->
+            val peer = peerForSession(session.id)
+            listener.safeNotify { onMessageSent(session.snapshot(peerId = peer?.peerId), message) }
+        }
+    }
+
+    private suspend fun runSession(session: DeviceSession) {
+        try {
+            session.transport.receive().collect { received ->
+                if (!received.succeeded) return@collect
+
+                val message = received.message!!
+
+                when (session.state) {
+                    SessionState.AWAITING_SESSION -> handleHandshake(session, message)
+                    SessionState.ACTIVE -> handleActiveMessage(session, message)
+                    SessionState.DISCONNECTING, SessionState.CLOSED -> { /* ignore */ }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val peer = peerForSession(session.id)
+            listener.safeNotify { onSessionError(session.snapshot(peerId = peer?.peerId), e) }
+        } finally {
+            closeSession(session)
         }
+    }
 
-        override fun onMessageSent(session: DeviceSessionSnapshot, message: Message) {
-            val peer = server.peerForSession(session.id)
-            if (peer != null) {
-                listener.safeNotify { onMessageSent(peer.snapshot(), message) }
+    private suspend fun handleHandshake(session: DeviceSession, message: Message) {
+        if (message !is SessionParameters) {
+            listener.safeNotify {
+                onSessionHandshakeFailed(
+                    session.snapshot(peerId = null),
+                    "Expected SessionParameters, got ${message::class.simpleName}"
+                )
+            }
+            closeSession(session)
+            return
+        }
+        session.sessionParameters = message
+        session.state = SessionState.ACTIVE
+        session.send(config.identity)
+        listener.safeNotify { onSessionActive(session.snapshot(peerId = null)) }
+
+        // Link inbound sessions to configured peers by identity
+        val peer = linkInboundPeer(session, message.identity)
+        if (peer != null) {
+            listener.safeNotify { onPeerConnected(session.snapshot(peerId = peer.peerId)) }
+        } else {
+            // Check if this session was already linked by connectOutbound
+            val outboundPeer = sessionToPeer[session.id]
+            if (outboundPeer != null) {
+                listener.safeNotify { onPeerConnected(session.snapshot(peerId = outboundPeer.peerId)) }
             }
         }
+    }
 
-        override fun onSessionError(session: DeviceSessionSnapshot, error: Throwable) {
-            listener.safeNotify { onError(error) }
+    /** Tries to match an inbound session to a configured peer by identity. */
+    private fun linkInboundPeer(session: DeviceSession, identity: String): Peer? {
+        if (sessionToPeer.containsKey(session.id)) return null // already linked (outbound)
+        val peer = _peers.values.firstOrNull { peer ->
+            val config = peer.config
+            val acceptsInbound = config is PeerConfig.Inbound ||
+                    (config is PeerConfig.Outbound && config.acceptInbound)
+            acceptsInbound && config.resolvedExpectedIdentity == identity && peer.session == null
+        } ?: return null
+        peer.session = session
+        sessionToPeer[session.id] = peer
+        return peer
+    }
+
+    private fun handleActiveMessage(session: DeviceSession, message: Message) {
+        val peer = peerForSession(session.id)
+        when (message) {
+            is SupplyParameters -> session.latestSupply = message
+            is DemandParameters -> session.latestDemand = message
+            is StorageParameters -> session.latestStorage = message
+            is Ping -> { /* keep-alive, nothing to update */ }
+
+            is SoftDisconnect -> {
+                session.state = SessionState.DISCONNECTING
+                listener.safeNotify { onSessionDisconnecting(session.snapshot(peerId = peer?.peerId), message) }
+            }
+
+            else -> { /* unknown message types */ }
         }
+
+        // Fire peer-level event for energy parameters
+        if ((message is SupplyParameters || message is DemandParameters || message is StorageParameters) && peer != null) {
+            listener.safeNotify { onPeerParametersUpdated(session.snapshot(peerId = peer.peerId), message) }
+        }
+
+        listener.safeNotify { onMessageReceived(session.snapshot(peerId = peer?.peerId), message) }
+    }
+
+    private fun closeSession(session: DeviceSession) {
+        if (session.state == SessionState.CLOSED) return
+        val peer = sessionToPeer.remove(session.id)
+        session.close()
+        _sessions.remove(session.id)
+        if (peer != null) {
+            peer.session = null
+            stopTransfer(peer.peerId)
+            listener.safeNotify { onPeerDisconnected(session.snapshot(peerId = peer.peerId)) }
+        }
+        listener.safeNotify { onSessionClosed(session.snapshot(peerId = peer?.peerId)) }
     }
 }

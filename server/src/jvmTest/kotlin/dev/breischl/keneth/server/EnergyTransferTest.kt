@@ -95,7 +95,7 @@ class EnergyTransferTest {
         val fake = ChannelFakeFrameTransport()
         fake.enqueue(frameResultFor(deviceIdentity))
         val transport = MessageTransport(fake)
-        node.server.accept(transport)
+        node.accept(transport)
 
         // Advance scheduler to process the handshake and connect the peer
         testScheduler.advanceUntilIdle()
