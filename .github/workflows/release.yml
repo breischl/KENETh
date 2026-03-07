@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0, no v prefix)'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Bump version, commit, and tag (dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          sed -i "s/^version=.*/version=${{ steps.version.outputs.VERSION }}/" gradle.properties
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add gradle.properties
+          git commit -m "chore: bump version to ${{ steps.version.outputs.VERSION }}"
+          git push
+          git tag "v${{ steps.version.outputs.VERSION }}"
+          git push origin "v${{ steps.version.outputs.VERSION }}"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 24
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run checks
+        run: ./gradlew check
+        env:
+          CHROME_BIN: google-chrome-stable
+
+      - name: Publish to Maven Central
+        run: ./gradlew publishAggregationToCentralPortal
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          GPG_SIGNING_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+          GPG_SIGNING_PASSWORD: ${{ secrets.GPG_SIGNING_PASSWORD }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.version.outputs.VERSION }}" \
+            --generate-notes \
+            --title "Release v${{ steps.version.outputs.VERSION }}"
+
+      - name: Bump to next snapshot version
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+          NEXT_VERSION="$(echo "$VERSION" | cut -d. -f1-2).$((PATCH + 1))-SNAPSHOT"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Tag-triggered builds check out a detached HEAD; switch to main first.
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
+            git checkout main
+          fi
+          sed -i "s/^version=.*/version=$NEXT_VERSION/" gradle.properties
+          git add gradle.properties
+          git commit -m "chore: bump version to $NEXT_VERSION"
+          git push

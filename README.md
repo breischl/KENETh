@@ -16,6 +16,9 @@ KENETh provides:
 
 ## Modules
 
+KENETh provides modules at several levels of abstraction. You can use whichever is appropriate for your project.
+From the most low-level, transport adjacent to the most high-level/abstracted, they are:
+
 ### [keneth-core](core/README.md)
 
 Core EP library: typed value classes (`Voltage`, `Current`, `Power`, etc.), message models, CBOR serialization, and
@@ -28,9 +31,7 @@ encoding/decoding and message parsing automatically. TCP/TLS socket implementati
 
 ### [keneth-server](server/README.md)
 
-EP server: `EpNode` manages peer connections, EP session handshakes, and energy parameter publishing. Supports named
-peers with inbound matching by identity and configurable publish rates. Server logic is cross-platform; TCP accept loop
-is JVM-only.
+Server classes that manage incoming & outgoing peer connections, and message publishing.
 
 ## Platform Support
 
@@ -39,4 +40,5 @@ platform-specific implementations (TCP/TLS sockets, TCP accept loop) are in `jvm
 
 ## Development
 
-See [DEV_SETUP.md](DEV_SETUP.md) for prerequisites, build instructions, and useful references.
+See [dev-docs/DEVELOPING.md](dev-docs/DEVELOPING.md) for setup and practices. See [CLAUDE.md](CLAUDE.md) for agent
+instructions.

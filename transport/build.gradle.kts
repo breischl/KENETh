@@ -1,5 +1,6 @@
 plugins {
     id("buildsrc.convention.kotlin-multiplatform")
+    id("buildsrc.convention.kotlin-publishing")
     alias(libs.plugins.kotlinPluginSerialization)
 }
 

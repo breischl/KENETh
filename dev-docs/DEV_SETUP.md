@@ -1,27 +1,9 @@
 # Developer Setup
 
-## Build
-
-This project uses [Gradle](https://gradle.org/).
-
-* Run `./gradlew build` to build all targets.
-* Run `./gradlew check` to run all checks, including tests.
-* Run `./gradlew clean` to clean all build outputs.
-* Run `./gradlew :core:jvmTest` (or `:transport:jvmTest`, `:server:jvmTest`) for JVM tests on a specific module.
-* Run `./gradlew :core:allTests` to run tests across all platforms for a module.
-
-See [CLAUDE.md](CLAUDE.md) for full build command reference.
-
-## Useful References
-
-- [EnergyNet Protocol spec](https://github.com/energyetf/energynet)
-- [CBOR spec](https://cbor.io/)
-- [cbor.me](https://cbor.me/) is a handy CBOR debugging tool
-
-## JDK 25
+## JDK 24+
 
 Required for compilation and tests. Managed automatically via Gradle toolchains — Gradle will
-use an existing JDK 25 installation if one is available, or you can install
+use an existing JDK installation if one is available, or you can install
 [Temurin 25](https://adoptium.net/temurin/releases/?version=25) manually.
 
 ## Google Chrome

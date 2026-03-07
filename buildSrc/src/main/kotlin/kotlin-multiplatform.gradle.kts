@@ -9,8 +9,6 @@ plugins {
     id("dev.detekt")
 }
 
-version = "0.0.1-alpha"
-
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
     compilerOptions {
         // Suppress expect/actual classes Beta warning

@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Dev Setup
 
-See [DEV_SETUP.md](DEV_SETUP.md) for prerequisites (JDK, Chrome for browser tests).
+See [DEV_SETUP.md](dev-docs/DEV_SETUP.md) for prerequisites (JDK, Chrome for browser tests).
 
 ## Architecture
 
@@ -59,7 +59,7 @@ Platform-specific source sets follow the standard KMP layout:
 
 ### Build Configuration
 
-- **JDK 25** (Temurin) via Gradle toolchains
+- **JDK 24** (Temurin) via Gradle toolchains
 - **Kotlin 2.3.0** with kotlinx ecosystem (coroutines, serialization, datetime)
 - Multiplatform convention plugin at `buildSrc/src/main/kotlin/kotlin-multiplatform.gradle.kts` configures all targets,
   JUnit Platform, detekt, and compiler options for all modules
@@ -79,3 +79,9 @@ Non-API classes and methods should have comments unless they are trivial. Test c
 for tricky or complex areas.
 
 Keep the README.md and CLAUDE.md updated as appropriate. 
+
+## Versioning
+
+When starting on a new feature, bump the version in `gradle.properties`. Follow standard SemVer guidelines for the
+expected size and type of the change. Development versions should end in `-SNAPSHOT` - the release process will handle
+setting non-`SNAPSHOT` versions.
