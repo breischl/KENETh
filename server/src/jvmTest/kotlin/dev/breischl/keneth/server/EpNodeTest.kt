@@ -55,27 +55,27 @@ class EpNodeTest {
     /** Records all NodeListener calls for verification. */
     private class RecordingNodeListener : NodeListener {
         val events = mutableListOf<String>()
-        val connectedPeers = mutableListOf<PeerSnapshot>()
-        val disconnectedPeers = mutableListOf<PeerSnapshot>()
-        val parameterUpdates = mutableListOf<Pair<PeerSnapshot, Message>>()
+        val connectedPeers = mutableListOf<SessionSnapshot>()
+        val disconnectedPeers = mutableListOf<SessionSnapshot>()
+        val parameterUpdates = mutableListOf<Pair<SessionSnapshot, Message>>()
         val errors = mutableListOf<Throwable>()
 
-        override fun onPeerConnected(peer: PeerSnapshot) {
-            events.add("connected:${peer.peerId}")
-            connectedPeers.add(peer)
+        override fun onPeerConnected(session: SessionSnapshot) {
+            events.add("connected:${session.peerId}")
+            connectedPeers.add(session)
         }
 
-        override fun onPeerDisconnected(peer: PeerSnapshot) {
-            events.add("disconnected:${peer.peerId}")
-            disconnectedPeers.add(peer)
+        override fun onPeerDisconnected(session: SessionSnapshot) {
+            events.add("disconnected:${session.peerId}")
+            disconnectedPeers.add(session)
         }
 
-        override fun onPeerParametersUpdated(peer: PeerSnapshot, message: Message) {
-            events.add("params:${peer.peerId}:${message::class.simpleName}")
-            parameterUpdates.add(peer to message)
+        override fun onPeerParametersUpdated(session: SessionSnapshot, message: Message) {
+            events.add("params:${session.peerId}:${message::class.simpleName}")
+            parameterUpdates.add(session to message)
         }
 
-        override fun onError(error: Throwable) {
+        override fun onSessionError(session: SessionSnapshot, error: Throwable) {
             events.add("error:${error.message}")
             errors.add(error)
         }
@@ -154,7 +154,7 @@ class EpNodeTest {
 
         assertContains(listener.events, "connected:charger-1")
         assertEquals(1, listener.connectedPeers.size)
-        assertEquals("charger-1", listener.connectedPeers[0].peerId)
+        assertEquals("charger-1", listener.connectedPeers[0].peerId!!)
 
         fake.close()
         node.close()
