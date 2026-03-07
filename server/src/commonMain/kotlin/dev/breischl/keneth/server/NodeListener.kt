@@ -54,13 +54,6 @@ interface NodeListener {
     /** A configured peer's session was closed. The peer remains configured but disconnected. */
     fun onPeerDisconnected(session: SessionSnapshot) {}
 
-    /**
-     * A peer sent updated Supply, Demand, or Storage parameters.
-     *
-     * This fires after the session has been updated with the new values, captured in [session].
-     */
-    fun onPeerParametersUpdated(session: SessionSnapshot, message: Message) {}
-
     /** An energy transfer has been started for a peer. */
     fun onTransferStarted(transfer: EnergyTransferSnapshot) {}
 

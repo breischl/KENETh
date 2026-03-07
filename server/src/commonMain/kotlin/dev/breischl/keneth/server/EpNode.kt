@@ -2,7 +2,9 @@
 
 package dev.breischl.keneth.server
 
-import dev.breischl.keneth.core.messages.*
+import dev.breischl.keneth.core.messages.Message
+import dev.breischl.keneth.core.messages.SessionParameters
+import dev.breischl.keneth.core.messages.SoftDisconnect
 import dev.breischl.keneth.transport.MessageTransport
 import dev.breischl.keneth.transport.safeNotify
 import kotlinx.coroutines.*
@@ -352,11 +354,6 @@ class EpNode(
         if (message is SoftDisconnect) {
             session.state = SessionState.DISCONNECTING
             listener.safeNotify { onSessionDisconnecting(session.snapshot(peerId = peer?.peerId), message) }
-        }
-
-        // Fire peer-level event for energy parameters
-        if ((message is SupplyParameters || message is DemandParameters || message is StorageParameters) && peer != null) {
-            listener.safeNotify { onPeerParametersUpdated(session.snapshot(peerId = peer.peerId), message) }
         }
 
         listener.safeNotify { onMessageReceived(session.snapshot(peerId = peer?.peerId), message) }

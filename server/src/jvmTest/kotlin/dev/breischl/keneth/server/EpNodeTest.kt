@@ -1,9 +1,9 @@
 package dev.breischl.keneth.server
 
 import dev.breischl.keneth.core.frames.Frame
-import dev.breischl.keneth.core.messages.*
+import dev.breischl.keneth.core.messages.Message
+import dev.breischl.keneth.core.messages.SessionParameters
 import dev.breischl.keneth.core.parsing.ParseResult
-import dev.breischl.keneth.core.values.*
 import dev.breischl.keneth.transport.FrameTransport
 import dev.breischl.keneth.transport.InMemoryPeerConnector
 import dev.breischl.keneth.transport.MessageTransport
@@ -57,7 +57,6 @@ class EpNodeTest {
         val events = mutableListOf<String>()
         val connectedPeers = mutableListOf<SessionSnapshot>()
         val disconnectedPeers = mutableListOf<SessionSnapshot>()
-        val parameterUpdates = mutableListOf<Pair<SessionSnapshot, Message>>()
         val errors = mutableListOf<Throwable>()
 
         override fun onPeerConnected(session: SessionSnapshot) {
@@ -68,11 +67,6 @@ class EpNodeTest {
         override fun onPeerDisconnected(session: SessionSnapshot) {
             events.add("disconnected:${session.peerId}")
             disconnectedPeers.add(session)
-        }
-
-        override fun onPeerParametersUpdated(session: SessionSnapshot, message: Message) {
-            events.add("params:${session.peerId}:${message::class.simpleName}")
-            parameterUpdates.add(session to message)
         }
 
         override fun onSessionError(session: SessionSnapshot, error: Throwable) {
@@ -182,38 +176,6 @@ class EpNodeTest {
         assertContains(listener.events, "connected:charger-1")
         assertContains(listener.events, "disconnected:charger-1")
 
-        node.close()
-    }
-
-    @Test
-    fun `NodeListener onPeerParametersUpdated fires for Supply Demand Storage`() = runTest {
-        val listener = RecordingNodeListener()
-        val node = EpNode(
-            config = nodeConfig,
-            listener = listener,
-            coroutineContext = UnconfinedTestDispatcher(),
-        )
-
-        node.addPeer(
-            PeerConfig.Inbound(
-                peerId = "charger-1",
-                expectedIdentity = "test-device"
-            )
-        )
-
-        val supply = SupplyParameters(voltage = Voltage(400.0))
-        val demand = DemandParameters(voltage = Voltage(400.0))
-        val storage = StorageParameters(soc = Percentage(75.0))
-
-        val (fake, transport) = channelTransportWithMessages(deviceIdentity, supply, demand, storage)
-        node.accept(transport)
-
-        assertContains(listener.events, "params:charger-1:SupplyParameters")
-        assertContains(listener.events, "params:charger-1:DemandParameters")
-        assertContains(listener.events, "params:charger-1:StorageParameters")
-        assertEquals(3, listener.parameterUpdates.size)
-
-        fake.close()
         node.close()
     }
 
@@ -332,9 +294,9 @@ class EpNodeTest {
             },
             coroutineContext = UnconfinedTestDispatcher(),
         )
-        val errorTransport = object : dev.breischl.keneth.transport.FrameTransport {
-            override suspend fun send(frame: dev.breischl.keneth.core.frames.Frame) {}
-            override fun receive(): kotlinx.coroutines.flow.Flow<dev.breischl.keneth.core.parsing.ParseResult<dev.breischl.keneth.core.frames.Frame>> =
+        val errorTransport = object : FrameTransport {
+            override suspend fun send(frame: Frame) {}
+            override fun receive(): Flow<ParseResult<Frame>> =
                 kotlinx.coroutines.flow.flow { throw RuntimeException("test error") }
             override fun close() {}
         }
