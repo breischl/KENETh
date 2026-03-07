@@ -38,7 +38,7 @@ class DeviceSession internal constructor(
     var latestStorage: StorageParameters? = null
         internal set
 
-    /** Called after each successful [send]. Set by [EpServer] to fire listener notifications. */
+    /** Called after each successful [send]. Set by [EpNode] to fire listener notifications. */
     internal var afterSend: ((Message) -> Unit)? = null
 
     /** Send a message to this device. */
@@ -50,7 +50,7 @@ class DeviceSession internal constructor(
     /**
      * Close the underlying transport and mark this session as [SessionState.CLOSED].
      *
-     * Internal — external callers should use [EpServer.disconnect] to ensure
+     * Internal — external callers should use [EpNode.disconnect] to ensure
      * proper cleanup (peer unlinking, listener callbacks).
      */
     internal fun close() {

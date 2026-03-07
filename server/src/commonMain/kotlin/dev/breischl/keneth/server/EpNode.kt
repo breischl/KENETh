@@ -182,8 +182,8 @@ class EpNode(
     ): StartTransferResult {
         val peer = _peers[peerId]
             ?: return StartTransferResult.PeerNotFound(peerId)
-        if (peer.connectionState != ConnectionState.CONNECTED) {
-            return StartTransferResult.PeerNotConnected(peerId, peer.connectionState)
+        if (!peer.isConnected) {
+            return StartTransferResult.PeerNotConnected(peerId)
         }
         if (transfers.containsKey(peerId)) {
             return StartTransferResult.TransferAlreadyActive(peerId)
@@ -244,7 +244,7 @@ class EpNode(
         transfer.job?.cancel()
     }
 
-    // -- Private session machinery (absorbed from EpServer) --
+    // -- Private session machinery --
 
     private fun connectOutbound(peer: Peer) {
         val peerConfig = peer.config as? PeerConfig.Outbound ?: return

@@ -100,8 +100,8 @@ class EnergyTransferTest {
         // Advance scheduler to process the handshake and connect the peer
         testScheduler.advanceUntilIdle()
 
-        check(node.peers["charger-1"]?.connectionState == ConnectionState.CONNECTED) {
-            "Peer should be connected after handshake. State: ${node.peers["charger-1"]?.connectionState}"
+        check(node.peers["charger-1"]?.isConnected == true) {
+            "Peer should be connected after handshake. isConnected: ${node.peers["charger-1"]?.isConnected}"
         }
 
         return Triple(node, fake, listener)
@@ -273,7 +273,6 @@ class EnergyTransferTest {
         val result = node.startTransfer("charger-1", TransferParams(supply = SupplyParameters()))
         assertIs<StartTransferResult.PeerNotConnected>(result)
         assertEquals("charger-1", result.peerId)
-        assertEquals(ConnectionState.DISCONNECTED, result.state)
 
         node.close()
     }

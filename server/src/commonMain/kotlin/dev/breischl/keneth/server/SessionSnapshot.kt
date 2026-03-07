@@ -11,8 +11,7 @@ import kotlin.time.Instant
 /**
  * Immutable snapshot of a session's state at a point in time, optionally linked to a [Peer].
  *
- * Replaces both [PeerSnapshot] (peer-centric view) and [DeviceSessionSnapshot] (session-centric
- * view) with a single unified type. [peerId] is null for sessions not linked to any configured peer.
+ * Unified session snapshot type. [peerId] is null for sessions not linked to any configured peer.
  *
  * @property sessionId The session's unique ID.
  * @property peerId The ID of the linked peer, or null if the session is not linked to a peer.

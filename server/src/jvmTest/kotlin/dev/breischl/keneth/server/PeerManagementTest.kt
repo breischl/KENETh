@@ -110,7 +110,7 @@ class PeerManagementTest {
 
         assertEquals(1, node.peers.size)
         assertEquals(config, node.peers["peer-1"]?.config)
-        assertEquals(ConnectionState.DISCONNECTED, node.peers["peer-1"]?.connectionState)
+        assertFalse(node.peers["peer-1"]?.isConnected ?: true)
         node.close()
     }
 
@@ -149,7 +149,7 @@ class PeerManagementTest {
         node.accept(transport)
 
         val peer = node.peers["peer-1"]!!
-        assertEquals(ConnectionState.CONNECTED, peer.connectionState)
+        assertTrue(peer.isConnected)
         assertEquals("device-1", peer.remoteIdentity)
         assertContains(listener.events, "peerConnected:peer-1")
         node.close()
@@ -166,7 +166,7 @@ class PeerManagementTest {
         node.accept(transport)
 
         val peer = node.peers["device-1"]!!
-        assertEquals(ConnectionState.CONNECTED, peer.connectionState)
+        assertTrue(peer.isConnected)
         node.close()
     }
 
@@ -189,7 +189,7 @@ class PeerManagementTest {
         assertEquals(1, node.sessions.size)
         // Peer not linked
         val peer = node.peers["peer-1"]!!
-        assertEquals(ConnectionState.DISCONNECTED, peer.connectionState)
+        assertFalse(peer.isConnected)
         assertNull(peer.remoteIdentity)
         assertFalse(listener.events.any { it.startsWith("peerConnected") })
         node.close()
@@ -223,12 +223,12 @@ class PeerManagementTest {
         node.accept(transport)
 
         val peer = node.peers["device-1"]!!
-        assertEquals(ConnectionState.CONNECTED, peer.connectionState)
+        assertTrue(peer.isConnected)
 
         // Close the transport — session will complete and close
         fake.close()
 
-        assertEquals(ConnectionState.DISCONNECTED, peer.connectionState)
+        assertFalse(peer.isConnected)
         // Peer stays in the map
         assertTrue(node.peers.containsKey("device-1"))
         assertContains(listener.events, "peerDisconnected:device-1")
@@ -245,7 +245,7 @@ class PeerManagementTest {
         val (fake, transport) = channelTransportWithMessages(deviceIdentity)
         val session = node.accept(transport)
 
-        assertEquals(ConnectionState.CONNECTED, node.peers["device-1"]?.connectionState)
+        assertTrue(node.peers["device-1"]?.isConnected ?: false)
 
         node.removePeer("device-1")
 
@@ -289,7 +289,7 @@ class PeerManagementTest {
         }
 
         val peer = node.peers["remote-device"]!!
-        assertEquals(ConnectionState.CONNECTED, peer.connectionState)
+        assertTrue(peer.isConnected)
         assertEquals("remote-device", peer.remoteIdentity)
     }
 
