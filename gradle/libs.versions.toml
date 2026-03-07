@@ -11,6 +11,7 @@ kotlinxIo = "0.7.0"
 kotest = "6.1.3"
 detekt = "2.0.0-alpha.2"
 nmcp = "1.4.4"
+dokka = "2.1.0"
 
 [libraries]
 kotlinGradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -23,6 +24,7 @@ kotlinxIo = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "k
 kotestProperty = { module = "io.kotest:kotest-property", version.ref = "kotest" }
 detektGradlePlugin = { module = "dev.detekt:detekt-gradle-plugin", version.ref = "detekt" }
 nmcpGradlePlugin = { module = "com.gradleup.nmcp:com.gradleup.nmcp.gradle.plugin", version.ref = "nmcp" }
+dokkaGradlePlugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokka" }
 
 # Libraries can be bundled together for easier import
 [bundles]

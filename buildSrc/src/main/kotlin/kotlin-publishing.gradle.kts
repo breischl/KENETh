@@ -6,11 +6,20 @@ plugins {
     `maven-publish`
     signing
     id("com.gradleup.nmcp")
+    id("org.jetbrains.dokka")
+}
+
+// Package the Dokka HTML output as the required Javadoc JAR.
+// Maven Central requires a -javadoc.jar; the Javadoc format plugin is still alpha so we use HTML.
+val javadocJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("javadoc")
+    from(tasks.named("dokkaGeneratePublicationHtml"))
 }
 
 // Configure POM metadata for all publications (KMP creates several per module)
 publishing {
     publications.withType<MavenPublication>().configureEach {
+        artifact(javadocJar)
         pom {
             name.set(project.name)
             description.set("KENETh - Kotlin EnergyNet Protocol library")

@@ -18,6 +18,7 @@ dependencies {
     implementation(libs.kotlinGradlePlugin)
     implementation(libs.detektGradlePlugin)
     implementation(libs.nmcpGradlePlugin)
+    implementation(libs.dokkaGradlePlugin)
 }
 
 subprojects {
