@@ -135,7 +135,7 @@ class ReceiveTimeoutTest {
         advanceTimeBy(1)
         assertEquals(SessionState.ACTIVE, session.state)
 
-        node.startTransfer("test-device", TransferParams(supply = SupplyParameters()))
+        node.startTransfer("test-device", { TransferParams(supply = SupplyParameters()) })
         advanceTimeBy(1)
 
         // Advance past transfer timeout — no messages from remote
@@ -163,7 +163,7 @@ class ReceiveTimeoutTest {
 
         advanceTimeBy(1)
 
-        node.startTransfer("test-device", TransferParams(supply = SupplyParameters()))
+        node.startTransfer("test-device", { TransferParams(supply = SupplyParameters()) })
         advanceTimeBy(1)
 
         // 300ms passes — transfer timeout fires, not the idle timeout

@@ -122,7 +122,7 @@ class EnergyTransferTest {
         val demand = DemandParameters(voltage = Voltage(400.0))
         val params = TransferParams(supply = supply, demand = demand)
 
-        node.startTransfer("charger-1", params, tickRate = 100.milliseconds).requireSuccess()
+        node.startTransfer("charger-1", { params }, tickRate = 100.milliseconds).requireSuccess()
 
         // After first tick (immediate send before delay)
         advanceTimeBy(1)
@@ -140,27 +140,29 @@ class EnergyTransferTest {
     }
 
     @Test
-    fun `update transfer changes parameters on next tick`() = runTest {
+    fun `callback result is used on each tick`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val (node, fake, _) = createNodeWithConnectedPeer(dispatcher)
 
-        val supply1 = SupplyParameters(voltage = Voltage(400.0))
-        node.startTransfer("charger-1", TransferParams(supply = supply1), tickRate = 100.milliseconds).requireSuccess()
+        var params = TransferParams(supply = SupplyParameters(voltage = Voltage(400.0)))
+        node.startTransfer("charger-1", { params }, tickRate = 100.milliseconds).requireSuccess()
 
-        // First tick sends supply1
+        // First tick sends supply only
         advanceTimeBy(1)
         assertEquals(1, countSentMessagesByType(fake, SupplyParameters.TYPE_ID))
+        assertEquals(0, countSentMessagesByType(fake, DemandParameters.TYPE_ID))
 
-        // Update to include demand as well
-        val supply2 = SupplyParameters(voltage = Voltage(800.0))
-        val demand = DemandParameters(voltage = Voltage(800.0))
-        node.updateTransfer("charger-1", TransferParams(supply = supply2, demand = demand))
+        // Update the captured state — next tick should pick it up
+        params = TransferParams(
+            supply = SupplyParameters(voltage = Voltage(800.0)),
+            demand = DemandParameters(voltage = Voltage(800.0)),
+        )
 
         // Second tick should use updated params
         advanceTimeBy(100)
         assertTrue(
             countSentMessagesByType(fake, DemandParameters.TYPE_ID) >= 1,
-            "Expected demand messages after update"
+            "Expected demand messages after callback state update"
         )
 
         node.close()
@@ -173,7 +175,7 @@ class EnergyTransferTest {
 
         val supply = SupplyParameters(voltage = Voltage(400.0))
         val transfer = node.startTransfer(
-            "charger-1", TransferParams(supply = supply), tickRate = 100.milliseconds
+            "charger-1", { TransferParams(supply = supply) }, tickRate = 100.milliseconds
         ).requireSuccess()
 
         // First tick
@@ -194,25 +196,22 @@ class EnergyTransferTest {
     }
 
     @Test
-    fun `transfer survives multiple parameter updates`() = runTest {
+    fun `transfer sends on every tick`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val (node, fake, _) = createNodeWithConnectedPeer(dispatcher)
 
-        node.startTransfer(
-            "charger-1",
-            TransferParams(supply = SupplyParameters(voltage = Voltage(200.0))),
-            tickRate = 50.milliseconds
-        ).requireSuccess()
+        var params = TransferParams(supply = SupplyParameters(voltage = Voltage(200.0)))
+        node.startTransfer("charger-1", { params }, tickRate = 50.milliseconds).requireSuccess()
 
         // First tick
         advanceTimeBy(1)
 
-        // Update several times
-        node.updateTransfer("charger-1", TransferParams(supply = SupplyParameters(voltage = Voltage(400.0))))
+        // Advance through several ticks, updating captured state between them
+        params = TransferParams(supply = SupplyParameters(voltage = Voltage(400.0)))
         advanceTimeBy(50)
-        node.updateTransfer("charger-1", TransferParams(supply = SupplyParameters(voltage = Voltage(600.0))))
+        params = TransferParams(supply = SupplyParameters(voltage = Voltage(600.0)))
         advanceTimeBy(50)
-        node.updateTransfer("charger-1", TransferParams(supply = SupplyParameters(voltage = Voltage(800.0))))
+        params = TransferParams(supply = SupplyParameters(voltage = Voltage(800.0)))
         advanceTimeBy(50)
 
         // All ticks should have sent supply messages
@@ -231,7 +230,7 @@ class EnergyTransferTest {
 
         val transfer = node.startTransfer(
             "charger-1",
-            TransferParams(supply = SupplyParameters(voltage = Voltage(400.0))),
+            { TransferParams(supply = SupplyParameters(voltage = Voltage(400.0))) },
             tickRate = 100.milliseconds,
         ).requireSuccess()
 
@@ -260,7 +259,7 @@ class EnergyTransferTest {
 
         node.addPeer(PeerConfig.Inbound(peerId = "charger-1"))
 
-        val result = node.startTransfer("charger-1", TransferParams(supply = SupplyParameters()))
+        val result = node.startTransfer("charger-1", { TransferParams(supply = SupplyParameters()) })
         assertIs<StartTransferResult.PeerNotConnected>(result)
         assertEquals("charger-1", result.peerId)
 
@@ -275,7 +274,7 @@ class EnergyTransferTest {
             coroutineContext = dispatcher,
         )
 
-        val result = node.startTransfer("nonexistent", TransferParams(supply = SupplyParameters()))
+        val result = node.startTransfer("nonexistent", { TransferParams(supply = SupplyParameters()) })
         assertIs<StartTransferResult.PeerNotFound>(result)
         assertEquals("nonexistent", result.peerId)
 
@@ -287,10 +286,10 @@ class EnergyTransferTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val (node, _, _) = createNodeWithConnectedPeer(dispatcher)
 
-        node.startTransfer("charger-1", TransferParams(supply = SupplyParameters()), tickRate = 100.milliseconds)
+        node.startTransfer("charger-1", { TransferParams(supply = SupplyParameters()) }, tickRate = 100.milliseconds)
             .requireSuccess()
 
-        val result = node.startTransfer("charger-1", TransferParams(supply = SupplyParameters()))
+        val result = node.startTransfer("charger-1", { TransferParams(supply = SupplyParameters()) })
         assertIs<StartTransferResult.TransferAlreadyActive>(result)
         assertEquals("charger-1", result.peerId)
 

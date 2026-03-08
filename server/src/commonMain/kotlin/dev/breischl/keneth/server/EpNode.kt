@@ -175,8 +175,10 @@ class EpNode(
     /**
      * Start publishing energy parameters to a connected peer.
      *
-     * Launches a coroutine that sends each non-null parameter message every [tickRate].
-     * The transfer can be updated with [updateTransfer] or stopped with [stopTransfer].
+     * Launches a coroutine that calls [paramsProvider] on each tick and sends
+     * any non-null messages from the returned [TransferParams]. The caller
+     * controls what is sent by mutating the state that [paramsProvider] captures.
+     * The transfer can be stopped with [stopTransfer].
      *
      * Returns a [StartTransferResult] indicating success or the reason for failure.
      *
@@ -185,12 +187,12 @@ class EpNode(
      * the transfer stops immediately.
      *
      * @param peerId The peer to send parameters to.
-     * @param params The parameters to publish.
+     * @param paramsProvider Called each tick to obtain the parameters to send.
      * @param tickRate How often to send parameters. Defaults to 100ms.
      */
     fun startTransfer(
         peerId: String,
-        params: TransferParams,
+        paramsProvider: () -> TransferParams,
         tickRate: Duration = 100.milliseconds
     ): StartTransferResult {
         val peer = _peers[peerId]
@@ -202,7 +204,7 @@ class EpNode(
             return StartTransferResult.TransferAlreadyActive(peerId)
         }
 
-        val transfer = EnergyTransfer(peerId = peerId, _params = params)
+        val transfer = EnergyTransfer(peerId = peerId)
         transfers[peerId] = transfer
         // Signal the session watchdog to re-evaluate its timeout with the tighter transfer window.
         peer.session?.receiveHeartbeat?.trySend(Unit)
@@ -213,7 +215,7 @@ class EpNode(
                     val session = peer.session
                     if (session == null || session.state != SessionState.ACTIVE) break
 
-                    val currentParams = transfer._params
+                    val currentParams = paramsProvider()
                     currentParams.supply?.let { session.send(it) }
                     currentParams.demand?.let { session.send(it) }
                     currentParams.storage?.let { session.send(it) }
@@ -231,19 +233,6 @@ class EpNode(
         }
 
         return StartTransferResult.Success(transfer)
-    }
-
-    /**
-     * Update the parameters for an active transfer.
-     *
-     * The new parameters take effect on the next tick.
-     *
-     * @throws IllegalStateException if no active transfer exists for this peer.
-     */
-    fun updateTransfer(peerId: String, params: TransferParams) {
-        val transfer = transfers[peerId]
-            ?: throw IllegalStateException("No active transfer for peer '$peerId'")
-        transfer._params = params
     }
 
     /**
