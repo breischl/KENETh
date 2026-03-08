@@ -41,7 +41,8 @@ import kotlin.uuid.Uuid
  * @param transportListener Optional listener for transport-level events (frame/message I/O).
  * @param nodeListener Optional callback for session and peer lifecycle events.
  * @param transferReceiveTimeout Closes the session if no message is received within this
- *   window while an energy transfer is active. Defaults to 200 ms (EP minimum: 5 Hz).
+ *   window while an energy transfer is active. EP Spec section 5.1 specifies this must be no more than 200 ms.
+ *   Defaults to 200 ms (EP minimum: 5 Hz).
  * @param idleReceiveTimeout Closes the session if no message is received within this
  *   window when no transfer is active. Defaults to 5 s.
  * @param coroutineContext Additional coroutine context elements (e.g., a test dispatcher).
@@ -188,7 +189,7 @@ class EpNode(
      *
      * @param peerId The peer to send parameters to.
      * @param paramsProvider Called each tick to obtain the parameters to send.
-     * @param tickRate How often to send parameters. Defaults to 100ms.
+     * @param tickRate How often to send parameters. Defaults to 100ms. EnergyNet spec requires no more than 200ms or remote side will cancel transfer.
      */
     fun startTransfer(
         peerId: String,
