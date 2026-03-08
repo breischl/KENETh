@@ -13,6 +13,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 /**
@@ -39,6 +40,10 @@ import kotlin.uuid.Uuid
  * @param acceptor Strategy for accepting inbound connections, or null to disable listening.
  * @param transportListener Optional listener for transport-level events (frame/message I/O).
  * @param nodeListener Optional callback for session and peer lifecycle events.
+ * @param transferReceiveTimeout Closes the session if no message is received within this
+ *   window while an energy transfer is active. Defaults to 200 ms (EP minimum: 5 Hz).
+ * @param idleReceiveTimeout Closes the session if no message is received within this
+ *   window when no transfer is active. Defaults to 5 s.
  * @param coroutineContext Additional coroutine context elements (e.g., a test dispatcher).
  */
 class EpNode(
@@ -46,6 +51,8 @@ class EpNode(
     val acceptor: InboundAcceptor? = null,
     val transportListener: TransportListener? = null,
     private val nodeListener: NodeListener? = null,
+    val transferReceiveTimeout: Duration = 200.milliseconds,
+    val idleReceiveTimeout: Duration = 5.seconds,
     private val coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ) : AutoCloseable {
 
@@ -197,6 +204,8 @@ class EpNode(
 
         val transfer = EnergyTransfer(peerId = peerId, _params = params)
         transfers[peerId] = transfer
+        // Signal the session watchdog to re-evaluate its timeout with the tighter transfer window.
+        peer.session?.receiveHeartbeat?.trySend(Unit)
 
         transfer.job = transferScope.launch {
             try {
@@ -250,6 +259,19 @@ class EpNode(
 
     // -- Private session machinery --
 
+    /** Thrown internally by the watchdog to trigger session close on receive timeout. */
+    private class ReceiveTimeoutException : CancellationException("EP receive timeout")
+
+    /** Returns the receive timeout that applies to [session] given current transfer state. */
+    private fun activeReceiveTimeout(session: DeviceSession): Duration {
+        val peer = peerForSession(session.id)
+        return if (peer != null && transfers.containsKey(peer.peerId)) {
+            transferReceiveTimeout
+        } else {
+            idleReceiveTimeout
+        }
+    }
+
     private fun connectOutbound(peer: Peer) {
         val peerConfig = peer.config as? PeerConfig.Outbound ?: return
         sessionScope.launch {
@@ -287,16 +309,38 @@ class EpNode(
 
     private suspend fun runSession(session: DeviceSession) {
         try {
-            session.transport.receive().collect { received ->
-                if (!received.succeeded) return@collect
+            coroutineScope {
+                val runScope = this
 
-                val message = received.message!!
-
-                when (session.state) {
-                    SessionState.AWAITING_SESSION -> handleHandshake(session, message)
-                    SessionState.ACTIVE -> handleActiveMessage(session, message)
-                    SessionState.DISCONNECTING, SessionState.CLOSED -> { /* ignore */ }
+                // Watchdog: cancel this scope if no heartbeat is received within the timeout.
+                // Uses withTimeoutOrNull (backed by delay) so it works with virtual time in tests.
+                val watchdogJob = launch {
+                    while (isActive) {
+                        val timeout = activeReceiveTimeout(session)
+                        val beat = withTimeoutOrNull(timeout) { session.receiveHeartbeat.receive() }
+                        if (beat == null) {
+                            // No message within the deadline — treat connection as lost.
+                            runScope.cancel(ReceiveTimeoutException())
+                            return@launch
+                        }
+                        // Heartbeat received; loop to start a fresh wait with the current timeout.
+                    }
                 }
+
+                session.transport.receive().collect { received ->
+                    session.receiveHeartbeat.trySend(Unit)
+                    if (!received.succeeded) return@collect
+
+                    val message = received.message!!
+
+                    when (session.state) {
+                        SessionState.AWAITING_SESSION -> handleHandshake(session, message)
+                        SessionState.ACTIVE -> handleActiveMessage(session, message)
+                        SessionState.DISCONNECTING, SessionState.CLOSED -> { /* ignore */ }
+                    }
+                }
+                // Transport closed normally — stop the watchdog so the scope can complete.
+                watchdogJob.cancel()
             }
         } catch (e: CancellationException) {
             throw e

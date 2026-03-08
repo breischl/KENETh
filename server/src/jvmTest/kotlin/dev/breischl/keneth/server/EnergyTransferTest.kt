@@ -89,8 +89,8 @@ class EnergyTransferTest {
         val transport = MessageTransport(fake)
         node.accept(transport)
 
-        // Advance scheduler to process the handshake and connect the peer
-        testScheduler.advanceUntilIdle()
+        // Advance 1ms to process the handshake without advancing to the idle timeout
+        testScheduler.advanceTimeBy(1)
 
         check(node.peers["charger-1"]?.isConnected == true) {
             "Peer should be connected after handshake. isConnected: ${node.peers["charger-1"]?.isConnected}"

@@ -3,6 +3,7 @@ package dev.breischl.keneth.server
 import dev.breischl.keneth.core.messages.Message
 import dev.breischl.keneth.core.messages.SessionParameters
 import dev.breischl.keneth.transport.MessageTransport
+import kotlinx.coroutines.channels.Channel
 
 /**
  * Represents a connected device and its current state.
@@ -25,6 +26,12 @@ class DeviceSession internal constructor(
     /** Current lifecycle state of this session. */
     var state: SessionState = SessionState.AWAITING_SESSION
         internal set
+
+    /**
+     * Signalled on every received message (and on transfer-start) so the receive watchdog
+     * can reset its deadline without relying on wall-clock time.
+     */
+    internal val receiveHeartbeat = Channel<Unit>(Channel.CONFLATED)
 
     /** Called after each successful [send]. Set by [EpNode] to fire listener notifications. */
     internal var afterSend: ((Message) -> Unit)? = null
