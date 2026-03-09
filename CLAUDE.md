@@ -80,6 +80,21 @@ for tricky or complex areas.
 
 Keep the README.md and CLAUDE.md updated as appropriate. 
 
+## Server Module Notes
+
+### Key classes (post-0.2.0)
+- `EpNode` is the sole entry point — manages sessions, peers, and transfers
+- `NodeListener` is the callback interface; `SessionSnapshot` is the immutable event payload
+- `startTransfer(peerId, paramsProvider: () -> TransferParams, tickRate)` takes a **callback**, not static params; the callback is invoked each tick so callers update captured state to change params mid-transfer
+
+### Server test utilities (jvmTest)
+Shared helpers live in `ServerTestUtils.kt`. Do not duplicate these in individual test files:
+- `testCbor` — shared CBOR codec
+- `encodeMessage(message)`, `frameResultFor(message)` — encode messages into frames
+- `channelTransportWithMessages(vararg messages)` — creates a `ChannelFakeFrameTransport` pre-loaded with messages
+- `ChannelFakeFrameTransport.enqueueMessage(message)` extension — enqueue a message mid-test
+- `ChannelFakeFrameTransport` — fake transport backed by a `Channel`; stays open until explicitly closed
+
 ## Versioning
 
 When starting on a new feature, bump the version in `gradle.properties`. Follow standard SemVer guidelines for the
