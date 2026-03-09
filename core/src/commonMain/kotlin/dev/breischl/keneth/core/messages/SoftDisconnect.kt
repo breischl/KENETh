@@ -22,6 +22,9 @@ import net.orandja.obor.data.CborObject
  * indicating whether the client should attempt to reconnect.
  * Defined in EnergyNet Protocol section 4.3.
  *
+ * Trivia: The hex typeId for this type is 0xbabadead - i.e. "Ba Ba Dead". Apparently a joke
+ * from the spec designers since this message is "killing" the session.
+ *
  * @property reconnect If true, the client should attempt to reconnect.
  * @property reason A human-readable reason for the disconnection.
  */

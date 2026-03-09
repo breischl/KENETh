@@ -22,8 +22,10 @@ import net.orandja.obor.data.CborObject
  * Battery storage status and targets.
  *
  * This message communicates the state of a battery storage system,
- * including current state of charge and charging targets.
- * Defined in EnergyNet Protocol section 4.6.
+ * including current state of charge and charging targets. Defined in EnergyNet Protocol section 4.6.
+ *
+ * Trivia: The hex typeId for this message is 0xdcdcba77 - i.e. "DC DC Batt". Apparently a joke from
+ * the spec designers, as this "Batt"ery power, which is usually provided as DC (direct current).
  *
  * @property soc The current state of charge as a percentage.
  * @property socTarget The target state of charge.

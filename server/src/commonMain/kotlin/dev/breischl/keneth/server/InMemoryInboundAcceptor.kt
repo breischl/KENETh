@@ -21,8 +21,8 @@ import kotlin.coroutines.EmptyCoroutineContext
  * ```kotlin
  * val acceptor = InMemoryInboundAcceptor()
  *
- * val nodeA = EpNode(NodeConfig(identity = identityA, acceptor = acceptor))
- * val nodeB = EpNode(NodeConfig(identity = identityB))
+ * val nodeA = EpNode(identity = identityA, acceptor = acceptor)
+ * val nodeB = EpNode(identity = identityB)
  *
  * nodeA.addPeer(PeerConfig.Inbound("node-b"))
  * nodeB.addPeer(PeerConfig.Outbound("node-a", connector = acceptor))
@@ -31,9 +31,9 @@ import kotlin.coroutines.EmptyCoroutineContext
  * nodeB.start()
  * ```
  *
- * When the outbound node calls [connect] (via [EpServer.addPeer]), an [InMemoryFrameTransport]
+ * When the outbound node calls [connect] (via [EpNode.addPeer]), an [InMemoryFrameTransport]
  * pair is created and the inbound side is queued internally. When the accepting node calls
- * [start], a coroutine drains the queue and passes each transport to [EpServer.accept].
+ * [start], a coroutine drains the queue and passes each transport to [EpNode.accept].
  *
  * @param coroutineContext Additional coroutine context (e.g., a test dispatcher).
  */
@@ -48,7 +48,7 @@ class InMemoryInboundAcceptor(
      * Called by the outbound node when it establishes a connection.
      *
      * Creates an [InMemoryFrameTransport] pair, queues the remote side for the accepting node's
-     * [EpServer.accept], and returns the local side for the outbound node's session.
+     * [EpNode.accept], and returns the local side for the outbound node's session.
      */
     override suspend fun connect(listener: TransportListener?): MessageTransport {
         val (local, remote) = InMemoryFrameTransport.createPair()
@@ -58,12 +58,12 @@ class InMemoryInboundAcceptor(
     }
 
     /**
-     * Starts the accept loop. Drains queued connections and passes each to [EpServer.accept].
+     * Starts the accept loop. Drains queued connections and passes each to [EpNode.accept].
      */
-    override fun start(server: EpServer) {
+    override fun start(node: EpNode) {
         scope.launch {
             for (transport in pendingConnections) {
-                server.accept(transport)
+                node.accept(transport)
             }
         }
     }

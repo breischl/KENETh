@@ -1,37 +1,40 @@
-# KENETh: Kotlin EnergyNET Protocol Library
+# KENETH: Kotlin EnergyNET Host
 
 [![CI](https://github.com/breischl/KENETh/actions/workflows/ci.yml/badge.svg)](https://github.com/breischl/KENETh/actions/workflows/ci.yml)
+![Maven Central Version](https://img.shields.io/maven-central/v/dev.breischl.keneth/server?strategy=highestVersion)
 
 ## Overview
 
 A Kotlin Multiplatform library for implementing the [EnergyNet Protocol (EP)](https://github.com/energyetf/energynet) —
 an open protocol for energy transfer coordination between devices such as EVs, chargers, and energy routers.
 
-KENETh provides:
+KENETH provides:
 
-- **CBOR serialization** of all EP message types and value types
-- **Frame encoding/decoding** for the EP wire format
-- **TCP and TLS transport** for sending and receiving EP messages
 - **Server-side session management** with EP handshake enforcement, peer tracking, and energy parameter publishing
+- **Frame encoding/decoding** for the EP wire format
+- **CBOR serialization** of all EP message types and value types
+- **TCP and TLS transport** for sending and receiving EP messages
 
 ## Modules
 
-KENETh provides modules at several levels of abstraction. You can use whichever is appropriate for your project.
+KENETH provides modules at several levels of abstraction. You can use whichever is appropriate for your project.
 From the most low-level, transport adjacent to the most high-level/abstracted, they are:
 
-### [keneth-core](core/README.md)
+### [keneth-server](server/README.md)
 
-Core EP library: typed value classes (`Voltage`, `Current`, `Power`, etc.), message models, CBOR serialization, and
-frame encoding/decoding. Fully cross-platform.
+Server classes that manage incoming & outgoing peer connections, and message publishing. `EpNode` provides the "brain
+stem"
+for an EnergyNet node. This is the highest-level abstraction, intended for building EnergyNet applications.
 
 ### [keneth-transport](transport/README.md)
 
 Transport layer: `MessageTransport` and `FrameTransport` interfaces with TCP and TLS implementations. Handles frame
-encoding/decoding and message parsing automatically. TCP/TLS socket implementations are JVM-only.
+encoding/decoding and message parsing automatically.
 
-### [keneth-server](server/README.md)
+### [keneth-core](core/README.md)
 
-Server classes that manage incoming & outgoing peer connections, and message publishing.
+Core EP library: typed value classes (`Voltage`, `Current`, `Power`, etc.), message models, CBOR serialization, and
+frame encoding/decoding. Useful for testing, debugging, and as a building block.
 
 ## Platform Support
 

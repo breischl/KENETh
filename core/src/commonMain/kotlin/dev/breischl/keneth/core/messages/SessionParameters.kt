@@ -19,6 +19,9 @@ import net.orandja.obor.data.CborObject
  * This message is sent during session setup to exchange identifying information
  * between the client and server. Defined in EnergyNet Protocol section 4.2.
  *
+ * Trivia: The hex typeId for this message is 0xbaba5e55 - ie "ba ba Sess". Appropriate,
+ * since this message establishes a "Sess"ion.
+ *
  * @property identity The unique identifier for this device or endpoint (required).
  * @property type The type of device (e.g., "charger", "vehicle").
  * @property version The protocol or software version.
