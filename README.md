@@ -26,6 +26,11 @@ Server classes that manage incoming & outgoing peer connections, and message pub
 stem"
 for an EnergyNet node. This is the highest-level abstraction, intended for building EnergyNet applications.
 
+### [keneth-web](web/README.md)
+
+Browser-based demos and tools. Compiles the above modules to JavaScript via Kotlin/JS and runs EP nodes entirely in the
+browser using in-memory transports. Deployed to [breischl.dev](https://breischl.dev/demos/keneth/).
+
 ### [keneth-transport](transport/README.md)
 
 Transport layer: `MessageTransport` and `FrameTransport` interfaces with TCP and TLS implementations. Handles frame

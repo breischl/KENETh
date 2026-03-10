@@ -24,5 +24,6 @@ plugins {
 include(":core")
 include(":transport")
 include(":server")
+include(":web")
 
 rootProject.name = "keneth"

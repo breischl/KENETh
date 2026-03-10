@@ -37,11 +37,12 @@ This is a Kotlin Multiplatform multi-module Gradle project with centralized buil
 - **core/** - EnergyNet Protocol (EP) core library with message models, value types, CBOR serialization, and frame encoding
 - **transport/** - Transport abstractions and TCP/TLS implementations for EP
 - **server/** - EP server with session management, peer tracking, and energy transfer management
+- **web/** - Browser-based demos (JS-only, does not use the shared convention plugin). See [web/README.md](web/README.md)
 - **buildSrc/** - Convention plugins for shared build logic across modules
 
 ### Platform Targets
 
-All modules target three platforms via the `kotlin-multiplatform` convention plugin:
+All library modules target three platforms via the `kotlin-multiplatform` convention plugin (the `web` module is JS-only):
 
 - **JVM** — full implementation; tests run with JUnit Platform
 - **JS (IR)** — Node.js and browser (Karma + headless Chrome) test runners

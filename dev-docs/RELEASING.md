@@ -44,4 +44,23 @@ They are retained here as documentation, and in case of setting up a new/differe
    In short: generate a 4096-bit RSA key, export it as base64, and add `GPG_SIGNING_KEY` and
    `GPG_SIGNING_PASSWORD` as GitHub Actions secrets.
 
+## Web Demo Deployment
 
+The release workflow also deploys the `web` module's production JS bundle to the
+[breischl.dev](https://breischl.dev) Hugo site. After publishing to Maven Central, the workflow:
+
+1. Builds the production webpack bundle (`./gradlew :web:jsBrowserProductionWebpack`)
+2. Clones the `breischl/breischl.github.io` repo
+3. Copies `web.js` to `static/demos/keneth/`
+4. Commits and pushes (only if the bundle actually changed)
+
+This triggers the Hugo site's own deploy workflow, making the updated demo live at
+`breischl.dev/demos/keneth/`.
+
+The web demo is updated only on releases, not on every `main` push. This ensures the live demo
+always matches a released version.
+
+### One-time setup for web demo deployment
+This repo needs an access token for the static site repo, so that the build process can write the build artifacts there. 
+To do this, create a [fine-grained Personal Access Token](https://github.com/settings/personal-access-tokens) for the target repo (`breischl/breischl.github.io`)
+with `Contents: Read and write` permission. Add it as `BREISCHL_DEV_REPO_ACCESS_TOKEN` in the KENETh repo's GitHub Actions secrets.
