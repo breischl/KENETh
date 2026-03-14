@@ -18,6 +18,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.w3c.dom.HTMLButtonElement
+import org.w3c.dom.HTMLDivElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLPreElement
 import kotlin.js.Date
@@ -27,14 +28,30 @@ private lateinit var nodeB: EpNode
 private lateinit var acceptor: InMemoryBidirectionalConnector
 
 /**
+ * Initializes the node demo page. Called from [dev.breischl.keneth.web.main].
+ *
  * Runs an in-browser network of [EpNode] connected to each other, with logging of the traffic between them.
  * Each node gets its own log box so traffic is easy to distinguish.
  */
-fun main() {
+fun initNodeDemo() {
     val container = document.getElementById("keneth-demo") as? HTMLElement ?: run {
         console.error("Could not find #keneth-demo container element")
         return
     }
+
+    // --- Intro paragraph ---
+    val intro = (document.createElement("div") as HTMLDivElement).apply {
+        innerHTML = """
+            <p>A minimal demo of two in-memory KENETH nodes communicating. The buttons below control starting and stopping 
+            the connection and some messages. This demonstrates connection setup and teardown, connection keepalive pings, 
+            code-level message listeners, and message (de-)serialization. No more complex behaviors are shown here. 
+            The network is simulated in memory, and the electric parameters are totally fictitious. 
+            <br>
+            The repeated messages are necessary to prevent connection timeouts.
+            </p>
+        """.trimIndent()
+    }
+    container.appendChild(intro)
 
     // --- Buttons ---
     val connectBtn = (document.createElement("button") as HTMLButtonElement).apply {

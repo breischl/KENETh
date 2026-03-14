@@ -29,7 +29,8 @@ for an EnergyNet node. This is the highest-level abstraction, intended for build
 ### [keneth-web](web/README.md)
 
 Browser-based demos and tools. Compiles the above modules to JavaScript via Kotlin/JS and runs EP nodes entirely in the
-browser using in-memory transports. Deployed to [breischl.dev](https://breischl.dev/demos/keneth/).
+browser using in-memory transports. Includes a message debugger for decoding/encoding EP frames.
+Deployed to [breischl.dev](https://breischl.dev/demos/keneth/).
 
 ### [keneth-transport](transport/README.md)
 

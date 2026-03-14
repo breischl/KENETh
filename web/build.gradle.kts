@@ -18,5 +18,8 @@ kotlin {
             implementation(project(":server"))
             implementation(libs.kotlinxCoroutines)
         }
+        jsTest.dependencies {
+            implementation(kotlin("test"))
+        }
     }
 }
